@@ -1,0 +1,157 @@
+import { NextRequest, NextResponse } from "next/server";
+import { prisma } from "@/lib/prisma";
+
+export async function GET(request: NextRequest) {
+  try {
+    console.log("Inventory API called");
+    const { searchParams } = new URL(request.url);
+    const search = searchParams.get("search") || "";
+    const brand = searchParams.get("brand") || "";
+    const category = searchParams.get("category") || "";
+
+    console.log("Search parameters:", { search, brand, category });
+
+    // where 조건을 단계별로 구성
+    const whereConditions: any = {};
+
+    if (search) {
+      whereConditions.OR = [
+        { code: { contains: search, mode: "insensitive" } },
+        { name: { contains: search, mode: "insensitive" } },
+        { model: { contains: search, mode: "insensitive" } },
+        { spec: { contains: search, mode: "insensitive" } },
+      ];
+    }
+
+    if (brand) {
+      whereConditions.brand = {
+        name: { contains: brand, mode: "insensitive" },
+      };
+    }
+
+    if (category) {
+      whereConditions.category = {
+        name: { contains: category, mode: "insensitive" },
+      };
+    }
+
+    console.log("Where conditions:", whereConditions);
+
+    // 먼저 기본 쿼리로 테스트
+    const items = await prisma.item.findMany({
+      include: {
+        brand: true,
+        category: true,
+        invTx: {
+          where: { txType: "RECEIPT" },
+          orderBy: { txDate: "desc" },
+          take: 1,
+        },
+      },
+    });
+
+    // 클라이언트 사이드에서 필터링 (임시)
+    let filteredItems = items;
+
+    if (search) {
+      const searchLower = search.toLowerCase();
+      filteredItems = filteredItems.filter(
+        (item) =>
+          item.code.toLowerCase().includes(searchLower) ||
+          item.name.toLowerCase().includes(searchLower) ||
+          (item.model && item.model.toLowerCase().includes(searchLower)) ||
+          (item.spec && item.spec.toLowerCase().includes(searchLower))
+      );
+    }
+
+    if (brand) {
+      const brandLower = brand.toLowerCase();
+      filteredItems = filteredItems.filter(
+        (item) =>
+          item.brand && item.brand.name.toLowerCase().includes(brandLower)
+      );
+    }
+
+    if (category) {
+      const categoryLower = category.toLowerCase();
+      filteredItems = filteredItems.filter(
+        (item) =>
+          item.category &&
+          item.category.name.toLowerCase().includes(categoryLower)
+      );
+    }
+
+    console.log("Filtered items:", filteredItems.length);
+
+    // Calculate current stock levels
+    const inventoryWithStock = await Promise.all(
+      filteredItems.map(async (item) => {
+        const receipts = await prisma.inventoryTransaction.aggregate({
+          where: {
+            itemId: item.id,
+            txType: "RECEIPT",
+          },
+          _sum: { qty: true },
+        });
+
+        const issues = await prisma.inventoryTransaction.aggregate({
+          where: {
+            itemId: item.id,
+            txType: "ISSUE",
+          },
+          _sum: { qty: true },
+        });
+
+        // 평균 구매단가 계산 (모든 구매 거래의 평균)
+        const avgPurchasePrice = await prisma.inventoryTransaction.aggregate({
+          where: {
+            itemId: item.id,
+            txType: "RECEIPT",
+          },
+          _avg: { unitCost: true },
+        });
+
+        const currentStock =
+          Number(receipts._sum.qty || 0) - Number(issues._sum.qty || 0);
+        const lastCost = Number(item.invTx[0]?.unitCost || 0);
+        const avgPurchasePrice_value = Number(
+          avgPurchasePrice._avg.unitCost || 0
+        );
+        const basePrice = Number(item.basePrice || 0);
+        const stockValue = currentStock * lastCost;
+
+        return {
+          ...item,
+          currentStock,
+          stockValue,
+          recentUnitCost: lastCost,
+          avgPurchasePrice: avgPurchasePrice_value,
+          basePrice,
+          minStock: Number(item.minStock || 0),
+          leadTime: Number(item.leadTime || 0),
+          isLowStock: currentStock < Number(item.minStock || 0),
+        };
+      })
+    );
+
+    console.log(
+      "Returning inventory data:",
+      inventoryWithStock.length,
+      "items"
+    );
+    return NextResponse.json(inventoryWithStock);
+  } catch (error) {
+    console.error("Error fetching inventory data:", error);
+    console.error(
+      "Error stack:",
+      error instanceof Error ? error.stack : "No stack"
+    );
+    return NextResponse.json(
+      {
+        error: "Failed to fetch inventory data",
+        details: error instanceof Error ? error.message : "Unknown error",
+      },
+      { status: 500 }
+    );
+  }
+}

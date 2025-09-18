@@ -24,3 +24,9 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+/* Placeholder 텍스트는 회색으로 표시 */
+input::placeholder,
+textarea::placeholder {
+  color: #6b7280 !important;
+}
