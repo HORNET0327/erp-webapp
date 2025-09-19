@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Navigation from "@/components/Navigation";
+import { isAdmin, isLeadUserOrAbove } from "@/lib/permissions";
 
 interface User {
   id: string;
@@ -42,6 +43,7 @@ export default function UsersPage() {
   const [showModal, setShowModal] = useState(false);
   const [editingUser, setEditingUser] = useState<User | null>(null);
   const [currentUser, setCurrentUser] = useState<string>("");
+  const [currentUserRoles, setCurrentUserRoles] = useState<string[]>([]);
   const [formData, setFormData] = useState({
     username: "",
     email: "",
@@ -71,7 +73,16 @@ export default function UsersPage() {
       });
       if (response.ok) {
         const data = await response.json();
-        setCurrentUser(data.username || data.email || "Unknown");
+        setCurrentUser(
+          data.user?.username ||
+            data.user?.name ||
+            data.user?.email ||
+            "Unknown"
+        );
+        if (data.user?.roles) {
+          const roles = data.user.roles.map((role: any) => role.name);
+          setCurrentUserRoles(roles);
+        }
       }
     } catch (error) {
       console.error("Error fetching current user:", error);
@@ -253,39 +264,41 @@ export default function UsersPage() {
               시스템 사용자와 권한을 관리하세요
             </p>
           </div>
-          <button
-            onClick={() => {
-              setEditingUser(null);
-              setFormData({
-                username: "",
-                email: "",
-                password: "",
-                employeeCode: "",
-                departmentCode: "",
-                jobTitle: "",
-                phone: "",
-                mobile: "",
-                addressLine1: "",
-                hireDate: "",
-                birthDate: "",
-                gender: "",
-                roleIds: [],
-              });
-              setShowModal(true);
-            }}
-            style={{
-              padding: "12px 24px",
-              background: "#3b82f6",
-              color: "#ffffff",
-              border: "none",
-              borderRadius: "8px",
-              fontSize: "14px",
-              fontWeight: "500",
-              cursor: "pointer",
-            }}
-          >
-            + 새 사용자
-          </button>
+          {isAdmin(currentUserRoles) && (
+            <button
+              onClick={() => {
+                setEditingUser(null);
+                setFormData({
+                  username: "",
+                  email: "",
+                  password: "",
+                  employeeCode: "",
+                  departmentCode: "",
+                  jobTitle: "",
+                  phone: "",
+                  mobile: "",
+                  addressLine1: "",
+                  hireDate: "",
+                  birthDate: "",
+                  gender: "",
+                  roleIds: [],
+                });
+                setShowModal(true);
+              }}
+              style={{
+                padding: "12px 24px",
+                background: "#3b82f6",
+                color: "#ffffff",
+                border: "none",
+                borderRadius: "8px",
+                fontSize: "14px",
+                fontWeight: "500",
+                cursor: "pointer",
+              }}
+            >
+              + 새 사용자
+            </button>
+          )}
         </div>
 
         {/* Users Table */}
@@ -448,9 +461,9 @@ export default function UsersPage() {
                             gap: "4px",
                           }}
                         >
-                          {user.userRoles.map((userRole) => (
+                          {user.userRoles.map((userRole, index) => (
                             <span
-                              key={userRole.id}
+                              key={userRole.id || `role-${user.id}-${index}`}
                               style={{
                                 padding: "2px 6px",
                                 background: "#dbeafe",
@@ -478,34 +491,45 @@ export default function UsersPage() {
                             justifyContent: "center",
                           }}
                         >
-                          <button
-                            onClick={() => handleEdit(user)}
-                            style={{
-                              padding: "6px 12px",
-                              background: "#f59e0b",
-                              color: "#ffffff",
-                              border: "none",
-                              borderRadius: "4px",
-                              fontSize: "12px",
-                              cursor: "pointer",
-                            }}
-                          >
-                            수정
-                          </button>
-                          <button
-                            onClick={() => handleDelete(user.id)}
-                            style={{
-                              padding: "6px 12px",
-                              background: "#ef4444",
-                              color: "#ffffff",
-                              border: "none",
-                              borderRadius: "4px",
-                              fontSize: "12px",
-                              cursor: "pointer",
-                            }}
-                          >
-                            삭제
-                          </button>
+                          {isAdmin(currentUserRoles) && (
+                            <>
+                              <button
+                                onClick={() => handleEdit(user)}
+                                style={{
+                                  padding: "6px 12px",
+                                  background: "#f59e0b",
+                                  color: "#ffffff",
+                                  border: "none",
+                                  borderRadius: "4px",
+                                  fontSize: "12px",
+                                  cursor: "pointer",
+                                }}
+                              >
+                                수정
+                              </button>
+                              <button
+                                onClick={() => handleDelete(user.id)}
+                                style={{
+                                  padding: "6px 12px",
+                                  background: "#ef4444",
+                                  color: "#ffffff",
+                                  border: "none",
+                                  borderRadius: "4px",
+                                  fontSize: "12px",
+                                  cursor: "pointer",
+                                }}
+                              >
+                                삭제
+                              </button>
+                            </>
+                          )}
+                          {!isAdmin(currentUserRoles) && (
+                            <span
+                              style={{ color: "#6b7280", fontSize: "12px" }}
+                            >
+                              조회만 가능
+                            </span>
+                          )}
                         </div>
                       </td>
                     </tr>

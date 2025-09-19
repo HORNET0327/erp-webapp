@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getSessionUser } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
 
 export async function GET() {
   try {
@@ -8,10 +9,30 @@ export async function GET() {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    // Get user with roles
+    const userWithRoles = await prisma.user.findUnique({
+      where: { id: user.id },
+      include: {
+        userRoles: {
+          include: {
+            role: true,
+          },
+        },
+      },
+    });
+
+    if (!userWithRoles) {
+      return NextResponse.json({ error: "User not found" }, { status: 404 });
+    }
+
     return NextResponse.json({
-      id: user.id,
-      username: user.username,
-      email: user.email,
+      user: {
+        id: userWithRoles.id,
+        username: userWithRoles.username,
+        name: userWithRoles.username, // username을 name으로도 사용
+        email: userWithRoles.email,
+        roles: userWithRoles.userRoles.map((ur) => ur.role),
+      },
     });
   } catch (error) {
     console.error("Error getting current user:", error);
@@ -21,7 +42,3 @@ export async function GET() {
     );
   }
 }
-
-
-
-

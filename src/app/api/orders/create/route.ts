@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSessionUser } from "@/lib/auth";
 import { PrismaClient } from "@prisma/client";
+import { ActivityLogger } from "@/lib/activity-logger";
 
 const prisma = new PrismaClient();
 
@@ -12,6 +13,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
+    console.log("Received order data:", JSON.stringify(body, null, 2));
     const { type, orderData } = body;
 
     if (type === "sales") {
@@ -51,6 +53,15 @@ export async function POST(request: NextRequest) {
         });
       }
 
+      // 고객 정보 가져오기
+      const customer = await prisma.customer.findUnique({
+        where: { id: customerId },
+        select: { name: true },
+      });
+
+      // 활동 로그 기록
+      await ActivityLogger.createOrder("sales", salesOrder.id, customer?.name);
+
       return NextResponse.json({
         success: true,
         order: salesOrder,
@@ -80,11 +91,24 @@ export async function POST(request: NextRequest) {
             purchaseOrderId: purchaseOrder.id,
             itemId: line.itemId,
             qty: line.qty,
-            unitCost: line.unitCost,
+            unitCost: line.unitPrice, // unitPrice를 unitCost로 매핑
             amount: line.amount,
           })),
         });
       }
+
+      // 공급업체 정보 가져오기
+      const vendor = await prisma.vendor.findUnique({
+        where: { id: vendorId },
+        select: { name: true },
+      });
+
+      // 활동 로그 기록
+      await ActivityLogger.createOrder(
+        "purchase",
+        purchaseOrder.id,
+        vendor?.name
+      );
 
       return NextResponse.json({
         success: true,
@@ -102,7 +126,3 @@ export async function POST(request: NextRequest) {
     await prisma.$disconnect();
   }
 }
-
-
-
-

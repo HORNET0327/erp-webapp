@@ -51,6 +51,7 @@ export default function DashboardPage() {
   useEffect(() => {
     fetchCurrentUser();
     fetchDashboardData();
+    fetchRecentActivities();
     fetchOrdersData();
   }, []);
 
@@ -61,7 +62,12 @@ export default function DashboardPage() {
       });
       if (response.ok) {
         const data = await response.json();
-        setCurrentUser(data.username || data.email || "Unknown");
+        setCurrentUser(
+          data.user?.username ||
+            data.user?.name ||
+            data.user?.email ||
+            "Unknown"
+        );
       }
     } catch (error) {
       console.error("Error fetching current user:", error);
@@ -70,16 +76,29 @@ export default function DashboardPage() {
 
   const fetchDashboardData = async () => {
     try {
-      const response = await fetch("/api/dashboard/personal-stats", {
+      const response = await fetch("/api/dashboard/stats", {
         credentials: "include",
       });
       if (response.ok) {
         const data = await response.json();
         setStats(data.stats || stats);
-        setRecentActivities(data.recentActivities || []);
       }
     } catch (error) {
       console.error("Error fetching dashboard data:", error);
+    }
+  };
+
+  const fetchRecentActivities = async () => {
+    try {
+      const response = await fetch("/api/activity-logs?limit=10", {
+        credentials: "include",
+      });
+      if (response.ok) {
+        const data = await response.json();
+        setRecentActivities(data.activityLogs || []);
+      }
+    } catch (error) {
+      console.error("Error fetching recent activities:", error);
     } finally {
       setLoading(false);
     }
@@ -352,11 +371,20 @@ export default function DashboardPage() {
                           <div
                             style={{
                               fontSize: "12px",
-                              color: "#000000",
+                              color: "#6b7280",
                             }}
                           >
-                            {activity.user} •{" "}
-                            {new Date(activity.timestamp).toLocaleDateString()}
+                            {activity.user?.username || "Unknown"} •{" "}
+                            {new Date(activity.timestamp).toLocaleDateString(
+                              "ko-KR",
+                              {
+                                year: "numeric",
+                                month: "short",
+                                day: "numeric",
+                                hour: "2-digit",
+                                minute: "2-digit",
+                              }
+                            )}
                           </div>
                         </div>
                       </div>

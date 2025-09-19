@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { createSession, hashPassword } from "@/lib/auth";
+import { ActivityLogger } from "@/lib/activity-logger";
 
 export async function POST(request: Request) {
   try {
@@ -32,6 +33,10 @@ export async function POST(request: Request) {
     }
 
     await createSession(user.id);
+
+    // 활동 로그 기록
+    await ActivityLogger.login(user.username);
+
     return NextResponse.json({ ok: true });
   } catch (e) {
     return NextResponse.json({ message: "Server error" }, { status: 500 });

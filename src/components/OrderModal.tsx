@@ -327,12 +327,49 @@ export default function OrderModal({
     setLoading(true);
 
     try {
+      // 주문번호 생성 (날짜 + 랜덤)
+      const orderNo =
+        type === "sales"
+          ? `SO${new Date()
+              .toISOString()
+              .slice(0, 10)
+              .replace(/-/g, "")}${Math.random()
+              .toString(36)
+              .substr(2, 4)
+              .toUpperCase()}`
+          : `PO${new Date()
+              .toISOString()
+              .slice(0, 10)
+              .replace(/-/g, "")}${Math.random()
+              .toString(36)
+              .substr(2, 4)
+              .toUpperCase()}`;
+
+      // 주문 라인 데이터 변환
+      const lines = orderLines
+        .filter((line) => line.itemId && line.qty > 0)
+        .map((line) => ({
+          itemId: line.itemId,
+          qty: line.qty,
+          unitPrice: line.unitPrice,
+          amount: line.total,
+        }));
+
       const orderPayload = {
-        ...orderData,
         type,
-        orderLines: orderLines.filter((line) => line.itemId && line.qty > 0),
-        totalAmount,
+        orderData: {
+          orderNo,
+          [type === "sales" ? "customerId" : "vendorId"]:
+            orderData.customerOrVendorId,
+          orderDate: orderData.orderDate,
+          status: orderData.status,
+          totalAmount,
+          notes: orderData.notes,
+          lines,
+        },
       };
+
+      console.log("Order payload:", JSON.stringify(orderPayload, null, 2));
 
       const response = await fetch("/api/orders/create", {
         method: "POST",

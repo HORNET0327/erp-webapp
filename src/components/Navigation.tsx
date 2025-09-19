@@ -2,6 +2,8 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState, useEffect } from "react";
+import ChangePasswordModal from "./ChangePasswordModal";
+import { isAdmin, isLeadUserOrAbove } from "@/lib/permissions";
 
 interface NavigationProps {
   currentUser?: string;
@@ -9,35 +11,34 @@ interface NavigationProps {
 
 export default function Navigation({ currentUser }: NavigationProps) {
   const pathname = usePathname();
-  const [isAdmin, setIsAdmin] = useState(false);
+  const [userRoles, setUserRoles] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isChangePasswordModalOpen, setIsChangePasswordModalOpen] =
+    useState(false);
 
   useEffect(() => {
-    checkAdminStatus();
+    fetchUserRoles();
   }, []);
 
-  const checkAdminStatus = async () => {
+  const fetchUserRoles = async () => {
     try {
-      // Check if user has admin role by calling users endpoint
-      const response = await fetch("/api/users", {
+      // Get current user's roles
+      const response = await fetch("/api/auth/me", {
         credentials: "include",
       });
 
-      if (response.status === 200) {
-        // User has access to users endpoint, so they are admin
-        setIsAdmin(true);
-      } else if (response.status === 403) {
-        // User is logged in but not admin
-        setIsAdmin(false);
+      if (response.ok) {
+        const data = await response.json();
+        if (data.user && data.user.roles) {
+          const roles = data.user.roles.map((role: any) => role.name);
+          setUserRoles(roles);
+        }
       } else if (response.status === 401) {
         // Not logged in, redirect to login
         window.location.href = "/login";
-      } else {
-        setIsAdmin(false);
       }
     } catch (error) {
-      console.error("Error checking admin status:", error);
-      setIsAdmin(false);
+      console.error("Error fetching user roles:", error);
     } finally {
       setLoading(false);
     }
@@ -51,8 +52,8 @@ export default function Navigation({ currentUser }: NavigationProps) {
     { href: "/reports", label: "보고서", icon: "📈" },
   ];
 
-  // Add users menu only for admin users
-  if (isAdmin) {
+  // Add users menu for Lead User and Admin
+  if (isLeadUserOrAbove(userRoles)) {
     menuItems.push({ href: "/users", label: "사용자관리", icon: "👤" });
   }
 
@@ -108,15 +109,32 @@ export default function Navigation({ currentUser }: NavigationProps) {
 
       <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
         {currentUser && (
-          <span
-            style={{
-              fontSize: 14,
-              color: "#000000",
-              fontWeight: 500,
-            }}
-          >
-            {currentUser}
-          </span>
+          <>
+            <span
+              style={{
+                fontSize: 14,
+                color: "#000000",
+                fontWeight: 500,
+              }}
+            >
+              {currentUser}
+            </span>
+            <button
+              onClick={() => setIsChangePasswordModalOpen(true)}
+              style={{
+                padding: "6px 12px",
+                backgroundColor: "#f3f4f6",
+                color: "#374151",
+                border: "1px solid #d1d5db",
+                borderRadius: 6,
+                fontSize: 12,
+                fontWeight: 500,
+                cursor: "pointer",
+              }}
+            >
+              설정
+            </button>
+          </>
         )}
         <button
           onClick={async () => {
@@ -146,6 +164,12 @@ export default function Navigation({ currentUser }: NavigationProps) {
           로그아웃
         </button>
       </div>
+
+      <ChangePasswordModal
+        isOpen={isChangePasswordModalOpen}
+        onClose={() => setIsChangePasswordModalOpen(false)}
+        username={currentUser || ""}
+      />
     </nav>
   );
 }

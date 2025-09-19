@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSessionUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { ActivityLogger } from "@/lib/activity-logger";
 
 export async function POST(request: NextRequest) {
   try {
@@ -149,6 +150,9 @@ export async function POST(request: NextRequest) {
         category: true,
       },
     });
+
+    // 활동 로그 기록
+    await ActivityLogger.createItem(createdItem.id, createdItem.name);
 
     return NextResponse.json({
       success: true,

@@ -3,6 +3,8 @@
 import { useState, useEffect } from "react";
 import Navigation from "@/components/Navigation";
 import OrderModal from "@/components/OrderModal";
+import OrderDetailModal from "@/components/OrderDetailModal";
+import QuotationModal from "@/components/QuotationModal";
 
 interface Order {
   id: string;
@@ -147,6 +149,9 @@ export default function OrdersPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
+  const [isQuotationModalOpen, setIsQuotationModalOpen] = useState(false);
+  const [selectedOrder, setSelectedOrder] = useState<any>(null);
 
   useEffect(() => {
     fetchCurrentUser();
@@ -160,8 +165,13 @@ export default function OrdersPage() {
         credentials: "include",
       });
       if (response.ok) {
-        const user = await response.json();
-        setCurrentUser(user.username || user.email);
+        const data = await response.json();
+        setCurrentUser(
+          data.user?.username ||
+            data.user?.name ||
+            data.user?.email ||
+            "Unknown"
+        );
       }
     } catch (error) {
       console.error("Error fetching current user:", error);
@@ -226,9 +236,29 @@ export default function OrdersPage() {
     fetchStats();
   };
 
+  const handleViewDetails = (order: any) => {
+    setSelectedOrder(order);
+    setIsDetailModalOpen(true);
+  };
+
+  const handleDetailModalClose = () => {
+    setIsDetailModalOpen(false);
+    setSelectedOrder(null);
+  };
+
+  const handleCreateQuotation = (order: any) => {
+    setSelectedOrder(order);
+    setIsQuotationModalOpen(true);
+  };
+
+  const handleQuotationModalClose = () => {
+    setIsQuotationModalOpen(false);
+    setSelectedOrder(null);
+  };
+
   return (
     <div style={{ minHeight: "100vh", background: "#f8fafc" }}>
-      <Navigation currentUser={currentUser} />
+      <Navigation currentUser={currentUser ?? undefined} />
 
       <div style={{ padding: "20px" }}>
         {/* Header */}
@@ -641,19 +671,44 @@ export default function OrdersPage() {
                           textAlign: "center",
                         }}
                       >
-                        <button
+                        <div
                           style={{
-                            padding: "6px 12px",
-                            background: "#3b82f6",
-                            color: "#ffffff",
-                            border: "none",
-                            borderRadius: "6px",
-                            fontSize: "12px",
-                            cursor: "pointer",
+                            display: "flex",
+                            gap: "8px",
+                            justifyContent: "center",
                           }}
                         >
-                          상세보기
-                        </button>
+                          <button
+                            onClick={() => handleViewDetails(order)}
+                            style={{
+                              padding: "6px 12px",
+                              background: "#3b82f6",
+                              color: "#ffffff",
+                              border: "none",
+                              borderRadius: "6px",
+                              fontSize: "12px",
+                              cursor: "pointer",
+                            }}
+                          >
+                            상세보기
+                          </button>
+                          {activeTab === "sales" && (
+                            <button
+                              onClick={() => handleCreateQuotation(order)}
+                              style={{
+                                padding: "6px 12px",
+                                background: "#10b981",
+                                color: "#ffffff",
+                                border: "none",
+                                borderRadius: "6px",
+                                fontSize: "12px",
+                                cursor: "pointer",
+                              }}
+                            >
+                              견적서
+                            </button>
+                          )}
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -669,6 +724,21 @@ export default function OrdersPage() {
           onClose={handleModalClose}
           type={activeTab}
           onSuccess={handleOrderSuccess}
+        />
+
+        {/* Order Detail Modal */}
+        <OrderDetailModal
+          isOpen={isDetailModalOpen}
+          onClose={handleDetailModalClose}
+          order={selectedOrder}
+          type={activeTab}
+        />
+
+        {/* Quotation Modal */}
+        <QuotationModal
+          isOpen={isQuotationModalOpen}
+          onClose={handleQuotationModalClose}
+          order={selectedOrder}
         />
       </div>
     </div>

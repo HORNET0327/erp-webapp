@@ -138,7 +138,12 @@ export default function CustomersPage() {
       });
       if (response.ok) {
         const data = await response.json();
-        setCurrentUser(data.username || data.email || "Unknown");
+        setCurrentUser(
+          data.user?.username ||
+            data.user?.name ||
+            data.user?.email ||
+            "Unknown"
+        );
       }
     } catch (error) {
       console.error("Error fetching current user:", error);

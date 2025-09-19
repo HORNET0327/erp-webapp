@@ -25,6 +25,7 @@ model User {
   userInfo      UserInfo?
   salesOrders   SalesOrder[] @relation("SalesOrders")
   purchaseOrders PurchaseOrder[] @relation("PurchaseOrders")
+  activityLogs  ActivityLog[]
 }
 
 model Role {
@@ -285,4 +286,23 @@ model SerialNumber {
 
   @@index([itemId])
   @@index([status])
+}
+
+// Activity Log
+model ActivityLog {
+  id          String   @id @default(cuid())
+  userId      String
+  action      String   @db.VarChar(50) // CREATE, UPDATE, DELETE, LOGIN, LOGOUT, etc.
+  entityType  String   @db.VarChar(50) // ORDER, ITEM, CUSTOMER, VENDOR, etc.
+  entityId    String?  @db.VarChar(50)
+  description String   @db.VarChar(500)
+  metadata    String?  @db.VarChar(1000) // JSON string for additional data
+  timestamp   DateTime @default(now())
+
+  user        User @relation(fields: [userId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([userId])
+  @@index([timestamp])
+  @@index([action])
+  @@index([entityType])
 }
