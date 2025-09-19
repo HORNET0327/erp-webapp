@@ -111,9 +111,39 @@ export async function GET(request: NextRequest) {
           _avg: { unitCost: true },
         });
 
+        // 최근 재고 트랜잭션 정보 가져오기 (참조와 메모를 위해)
+        const recentTransaction = await prisma.inventoryTransaction.findFirst({
+          where: {
+            itemId: item.id,
+          },
+          orderBy: {
+            txDate: "desc",
+          },
+          select: {
+            reference: true,
+            notes: true,
+          },
+        });
+
         const currentStock =
           Number(receipts._sum.qty || 0) - Number(issues._sum.qty || 0);
-        const lastCost = Number(item.invTx[0]?.unitCost || 0);
+
+        // 최근 구매 단가 (마지막 구매의 단가)
+        const lastPurchaseTransaction =
+          await prisma.inventoryTransaction.findFirst({
+            where: {
+              itemId: item.id,
+              txType: "RECEIPT",
+            },
+            orderBy: {
+              txDate: "desc",
+            },
+            select: {
+              unitCost: true,
+            },
+          });
+
+        const lastCost = Number(lastPurchaseTransaction?.unitCost || 0);
         const avgPurchasePrice_value = Number(
           avgPurchasePrice._avg.unitCost || 0
         );
@@ -130,6 +160,8 @@ export async function GET(request: NextRequest) {
           minStock: Number(item.minStock || 0),
           leadTime: Number(item.leadTime || 0),
           isLowStock: currentStock < Number(item.minStock || 0),
+          reference: recentTransaction?.reference || null,
+          notes: recentTransaction?.notes || null,
         };
       })
     );

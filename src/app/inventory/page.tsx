@@ -3,6 +3,8 @@
 import { useState, useEffect } from "react";
 import Navigation from "@/components/Navigation";
 import InventoryModal from "@/components/InventoryModal";
+import StockModal from "@/components/StockModal";
+import NewItemModal from "@/components/NewItemModal";
 
 interface InventoryItem {
   id: string;
@@ -28,6 +30,8 @@ interface InventoryItem {
   invTx?: any[];
   stockValue?: number;
   isLowStock?: boolean;
+  reference?: string;
+  notes?: string;
 }
 
 interface Filter {
@@ -50,6 +54,21 @@ export default function InventoryPage() {
   }>({ brands: [], categories: [] });
   const [showModal, setShowModal] = useState(false);
   const [selectedItem, setSelectedItem] = useState<InventoryItem | null>(null);
+  const [showStockModal, setShowStockModal] = useState(false);
+  const [showNewItemModal, setShowNewItemModal] = useState(false);
+  const [tooltip, setTooltip] = useState<{
+    visible: boolean;
+    x: number;
+    y: number;
+    content: string;
+  }>({ visible: false, x: 0, y: 0, content: "" });
+  const [sortConfig, setSortConfig] = useState<{
+    key: string;
+    direction: "asc" | "desc";
+  } | null>(null);
+  const [stockStatusFilter, setStockStatusFilter] = useState<string | null>(
+    null
+  );
 
   useEffect(() => {
     fetchCurrentUser();
@@ -59,7 +78,7 @@ export default function InventoryPage() {
 
   useEffect(() => {
     filterInventory();
-  }, [inventory, searchTerm, filters]);
+  }, [inventory, searchTerm, filters, stockStatusFilter]);
 
   const fetchCurrentUser = async () => {
     try {
@@ -149,6 +168,13 @@ export default function InventoryPage() {
       );
     }
 
+    if (stockStatusFilter) {
+      filtered = filtered.filter((item) => {
+        const status = getStockStatus(item.currentStock);
+        return status.text === stockStatusFilter;
+      });
+    }
+
     setFilteredInventory(filtered);
   };
 
@@ -164,6 +190,98 @@ export default function InventoryPage() {
 
   const handleInventoryUpdate = () => {
     fetchInventory();
+  };
+
+  const handleStockAdded = () => {
+    fetchInventory();
+  };
+
+  const handleNewItemAdded = () => {
+    fetchInventory();
+    fetchFilters(); // 브랜드/카테고리 목록도 새로고침
+  };
+
+  const showTooltip = (e: React.MouseEvent, item: InventoryItem) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+
+    // 실제 사용자 입력 정보가 있는지 확인
+    const hasUserReference =
+      item.reference &&
+      !["MANUAL_ADD", "INITIAL_STOCK", "STOCK_ADJUSTMENT"].includes(
+        item.reference
+      );
+    const hasUserNotes = item.notes && item.notes.trim() !== "";
+
+    // 사용자 입력 정보가 없으면 툴팁을 표시하지 않음
+    if (!hasUserReference && !hasUserNotes) {
+      return;
+    }
+
+    let content = "";
+    if (hasUserReference) {
+      content += `참조: ${item.reference}`;
+    }
+    if (hasUserNotes) {
+      if (content) content += "\n";
+      content += `메모: ${item.notes}`;
+    }
+
+    setTooltip({
+      visible: true,
+      x: rect.left + rect.width / 2,
+      y: rect.top - 10,
+      content: content,
+    });
+  };
+
+  const hideTooltip = () => {
+    setTooltip({ visible: false, x: 0, y: 0, content: "" });
+  };
+
+  const handleSort = (key: string) => {
+    let direction: "asc" | "desc" = "asc";
+
+    if (
+      sortConfig &&
+      sortConfig.key === key &&
+      sortConfig.direction === "asc"
+    ) {
+      direction = "desc";
+    }
+
+    setSortConfig({ key, direction });
+  };
+
+  const getSortedData = () => {
+    if (!sortConfig) return filteredInventory;
+
+    return [...filteredInventory].sort((a, b) => {
+      let aValue: any = a[sortConfig.key as keyof InventoryItem];
+      let bValue: any = b[sortConfig.key as keyof InventoryItem];
+
+      // 중첩 객체 처리 (brand.name, category.name)
+      if (sortConfig.key === "brand") {
+        aValue = a.brand?.name || "";
+        bValue = b.brand?.name || "";
+      } else if (sortConfig.key === "category") {
+        aValue = a.category?.name || "";
+        bValue = b.category?.name || "";
+      }
+
+      // 숫자 정렬
+      if (typeof aValue === "number" && typeof bValue === "number") {
+        return sortConfig.direction === "asc"
+          ? aValue - bValue
+          : bValue - aValue;
+      }
+
+      // 문자열 정렬
+      if (sortConfig.direction === "asc") {
+        return aValue.toString().localeCompare(bValue.toString());
+      } else {
+        return bValue.toString().localeCompare(aValue.toString());
+      }
+    });
   };
 
   const getStockStatus = (currentStock: number) => {
@@ -188,26 +306,65 @@ export default function InventoryPage() {
 
       <div style={{ padding: "20px" }}>
         {/* Header */}
-        <div style={{ marginBottom: "24px" }}>
-          <h1
-            style={{
-              fontSize: "32px",
-              fontWeight: "700",
-              color: "#000000",
-              marginBottom: "8px",
-            }}
-          >
-            재고 관리
-          </h1>
-          <p
-            style={{
-              fontSize: "16px",
-              color: "#000000",
-              margin: 0,
-            }}
-          >
-            제품 재고 현황을 확인하고 관리하세요 (더블클릭하여 수정)
-          </p>
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "flex-start",
+            marginBottom: "24px",
+          }}
+        >
+          <div>
+            <h1
+              style={{
+                fontSize: "32px",
+                fontWeight: "700",
+                color: "#000000",
+                marginBottom: "8px",
+              }}
+            >
+              재고 관리
+            </h1>
+          </div>
+          <div style={{ display: "flex", gap: "12px" }}>
+            <button
+              onClick={() => setShowStockModal(true)}
+              style={{
+                padding: "12px 24px",
+                background: "#10b981",
+                color: "#ffffff",
+                border: "none",
+                borderRadius: "8px",
+                fontSize: "14px",
+                fontWeight: "500",
+                cursor: "pointer",
+                display: "flex",
+                alignItems: "center",
+                gap: "8px",
+              }}
+            >
+              <span>📦</span>
+              수동 재고추가
+            </button>
+            <button
+              onClick={() => setShowNewItemModal(true)}
+              style={{
+                padding: "12px 24px",
+                background: "#3b82f6",
+                color: "#ffffff",
+                border: "none",
+                borderRadius: "8px",
+                fontSize: "14px",
+                fontWeight: "500",
+                cursor: "pointer",
+                display: "flex",
+                alignItems: "center",
+                gap: "8px",
+              }}
+            >
+              <span>➕</span>새 제품 추가
+            </button>
+          </div>
         </div>
 
         {/* Statistics Cards */}
@@ -222,7 +379,7 @@ export default function InventoryPage() {
           <div
             style={{
               background: "#ffffff",
-              padding: "20px",
+              padding: "10px",
               borderRadius: "12px",
               border: "1px solid #e5e7eb",
               boxShadow: "0 1px 3px rgba(0,0,0,0.1)",
@@ -249,12 +406,40 @@ export default function InventoryPage() {
           </div>
 
           <div
+            onClick={() => {
+              setStockStatusFilter(
+                stockStatusFilter === "부족" ? null : "부족"
+              );
+            }}
             style={{
-              background: "#ffffff",
-              padding: "20px",
+              background: stockStatusFilter === "부족" ? "#fef2f2" : "#ffffff",
+              padding: "10px",
               borderRadius: "12px",
-              border: "1px solid #e5e7eb",
-              boxShadow: "0 1px 3px rgba(0,0,0,0.1)",
+              border:
+                stockStatusFilter === "부족"
+                  ? "2px solid #ef4444"
+                  : "1px solid #e5e7eb",
+              boxShadow:
+                stockStatusFilter === "부족"
+                  ? "0 4px 6px rgba(239, 68, 68, 0.1)"
+                  : "0 1px 3px rgba(0,0,0,0.1)",
+              cursor: "pointer",
+              transition: "all 0.2s ease",
+            }}
+            onMouseEnter={(e) => {
+              if (stockStatusFilter !== "부족") {
+                e.currentTarget.style.background = "#fef2f2";
+                e.currentTarget.style.border = "2px solid #ef4444";
+                e.currentTarget.style.boxShadow =
+                  "0 4px 6px rgba(239, 68, 68, 0.1)";
+              }
+            }}
+            onMouseLeave={(e) => {
+              if (stockStatusFilter !== "부족") {
+                e.currentTarget.style.background = "#ffffff";
+                e.currentTarget.style.border = "1px solid #e5e7eb";
+                e.currentTarget.style.boxShadow = "0 1px 3px rgba(0,0,0,0.1)";
+              }
             }}
           >
             <div
@@ -280,7 +465,7 @@ export default function InventoryPage() {
           <div
             style={{
               background: "#ffffff",
-              padding: "20px",
+              padding: "10px",
               borderRadius: "12px",
               border: "1px solid #e5e7eb",
               boxShadow: "0 1px 3px rgba(0,0,0,0.1)",
@@ -473,6 +658,7 @@ export default function InventoryPage() {
                 <thead>
                   <tr style={{ background: "#f9fafb" }}>
                     <th
+                      onClick={() => handleSort("code")}
                       style={{
                         padding: "12px",
                         textAlign: "left",
@@ -480,11 +666,16 @@ export default function InventoryPage() {
                         fontWeight: "600",
                         color: "#000000",
                         borderBottom: "1px solid #e5e7eb",
+                        cursor: "pointer",
+                        userSelect: "none",
                       }}
                     >
-                      품목코드
+                      품목코드{" "}
+                      {sortConfig?.key === "code" &&
+                        (sortConfig.direction === "asc" ? "↑" : "↓")}
                     </th>
                     <th
+                      onClick={() => handleSort("name")}
                       style={{
                         padding: "12px",
                         textAlign: "left",
@@ -492,11 +683,16 @@ export default function InventoryPage() {
                         fontWeight: "600",
                         color: "#000000",
                         borderBottom: "1px solid #e5e7eb",
+                        cursor: "pointer",
+                        userSelect: "none",
                       }}
                     >
-                      제품명
+                      제품명{" "}
+                      {sortConfig?.key === "name" &&
+                        (sortConfig.direction === "asc" ? "↑" : "↓")}
                     </th>
                     <th
+                      onClick={() => handleSort("brand")}
                       style={{
                         padding: "12px",
                         textAlign: "left",
@@ -504,11 +700,16 @@ export default function InventoryPage() {
                         fontWeight: "600",
                         color: "#000000",
                         borderBottom: "1px solid #e5e7eb",
+                        cursor: "pointer",
+                        userSelect: "none",
                       }}
                     >
-                      브랜드
+                      브랜드{" "}
+                      {sortConfig?.key === "brand" &&
+                        (sortConfig.direction === "asc" ? "↑" : "↓")}
                     </th>
                     <th
+                      onClick={() => handleSort("category")}
                       style={{
                         padding: "12px",
                         textAlign: "left",
@@ -516,11 +717,16 @@ export default function InventoryPage() {
                         fontWeight: "600",
                         color: "#000000",
                         borderBottom: "1px solid #e5e7eb",
+                        cursor: "pointer",
+                        userSelect: "none",
                       }}
                     >
-                      카테고리
+                      카테고리{" "}
+                      {sortConfig?.key === "category" &&
+                        (sortConfig.direction === "asc" ? "↑" : "↓")}
                     </th>
                     <th
+                      onClick={() => handleSort("currentStock")}
                       style={{
                         padding: "12px",
                         textAlign: "right",
@@ -528,11 +734,16 @@ export default function InventoryPage() {
                         fontWeight: "600",
                         color: "#000000",
                         borderBottom: "1px solid #e5e7eb",
+                        cursor: "pointer",
+                        userSelect: "none",
                       }}
                     >
-                      현재재고
+                      현재재고{" "}
+                      {sortConfig?.key === "currentStock" &&
+                        (sortConfig.direction === "asc" ? "↑" : "↓")}
                     </th>
                     <th
+                      onClick={() => handleSort("recentUnitCost")}
                       style={{
                         padding: "12px",
                         textAlign: "right",
@@ -540,11 +751,16 @@ export default function InventoryPage() {
                         fontWeight: "600",
                         color: "#000000",
                         borderBottom: "1px solid #e5e7eb",
+                        cursor: "pointer",
+                        userSelect: "none",
                       }}
                     >
-                      최근단가
+                      최근단가{" "}
+                      {sortConfig?.key === "recentUnitCost" &&
+                        (sortConfig.direction === "asc" ? "↑" : "↓")}
                     </th>
                     <th
+                      onClick={() => handleSort("avgPurchasePrice")}
                       style={{
                         padding: "12px",
                         textAlign: "right",
@@ -552,11 +768,16 @@ export default function InventoryPage() {
                         fontWeight: "600",
                         color: "#000000",
                         borderBottom: "1px solid #e5e7eb",
+                        cursor: "pointer",
+                        userSelect: "none",
                       }}
                     >
-                      최근구매단가
+                      최근구매단가{" "}
+                      {sortConfig?.key === "avgPurchasePrice" &&
+                        (sortConfig.direction === "asc" ? "↑" : "↓")}
                     </th>
                     <th
+                      onClick={() => handleSort("basePrice")}
                       style={{
                         padding: "12px",
                         textAlign: "right",
@@ -564,9 +785,42 @@ export default function InventoryPage() {
                         fontWeight: "600",
                         color: "#000000",
                         borderBottom: "1px solid #e5e7eb",
+                        cursor: "pointer",
+                        userSelect: "none",
                       }}
                     >
-                      기본단가
+                      기본 판매단가{" "}
+                      {sortConfig?.key === "basePrice" &&
+                        (sortConfig.direction === "asc" ? "↑" : "↓")}
+                    </th>
+                    <th
+                      onClick={() => handleSort("model")}
+                      style={{
+                        padding: "12px",
+                        textAlign: "left",
+                        fontSize: "12px",
+                        fontWeight: "600",
+                        color: "#000000",
+                        borderBottom: "1px solid #e5e7eb",
+                        cursor: "pointer",
+                        userSelect: "none",
+                      }}
+                    >
+                      모델{" "}
+                      {sortConfig?.key === "model" &&
+                        (sortConfig.direction === "asc" ? "↑" : "↓")}
+                    </th>
+                    <th
+                      style={{
+                        padding: "12px",
+                        textAlign: "center",
+                        fontSize: "12px",
+                        fontWeight: "600",
+                        color: "#000000",
+                        borderBottom: "1px solid #e5e7eb",
+                      }}
+                    >
+                      시리얼번호
                     </th>
                     <th
                       style={{
@@ -583,12 +837,20 @@ export default function InventoryPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredInventory.map((item) => {
+                  {getSortedData().map((item) => {
                     const stockStatus = getStockStatus(item.currentStock);
                     return (
                       <tr
                         key={item.id}
                         onDoubleClick={() => handleRowDoubleClick(item)}
+                        onMouseEnter={(e) => {
+                          e.currentTarget.style.backgroundColor = "#f8fafc";
+                          showTooltip(e, item);
+                        }}
+                        onMouseLeave={(e) => {
+                          e.currentTarget.style.backgroundColor = "#ffffff";
+                          hideTooltip();
+                        }}
                         style={{
                           cursor: "pointer",
                           borderBottom: "1px solid #f3f4f6",
@@ -675,6 +937,26 @@ export default function InventoryPage() {
                         >
                           ₩{Number(item.basePrice || 0).toLocaleString()}
                         </td>
+                        <td
+                          style={{
+                            padding: "12px",
+                            textAlign: "left",
+                            fontSize: "14px",
+                            color: "#000000",
+                          }}
+                        >
+                          {String(item.model || "-")}
+                        </td>
+                        <td
+                          style={{
+                            padding: "12px",
+                            textAlign: "center",
+                            fontSize: "14px",
+                            color: "#000000",
+                          }}
+                        >
+                          {item.hasSerial ? "✓" : "-"}
+                        </td>
                         <td style={{ padding: "12px", textAlign: "center" }}>
                           <span
                             style={{
@@ -719,6 +1001,42 @@ export default function InventoryPage() {
         item={selectedItem}
         onSuccess={handleInventoryUpdate}
       />
+
+      {/* Stock Modal */}
+      <StockModal
+        isOpen={showStockModal}
+        onClose={() => setShowStockModal(false)}
+        onSuccess={handleStockAdded}
+      />
+
+      {/* New Item Modal */}
+      <NewItemModal
+        isOpen={showNewItemModal}
+        onClose={() => setShowNewItemModal(false)}
+        onSuccess={handleNewItemAdded}
+      />
+
+      {/* Tooltip */}
+      {tooltip.visible && (
+        <div
+          style={{
+            position: "fixed",
+            left: tooltip.x - 100,
+            top: tooltip.y - 60,
+            background: "#1f2937",
+            color: "#ffffff",
+            padding: "8px 12px",
+            borderRadius: "6px",
+            fontSize: "12px",
+            zIndex: 1001,
+            maxWidth: "200px",
+            whiteSpace: "pre-line",
+            boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)",
+          }}
+        >
+          {tooltip.content}
+        </div>
+      )}
     </div>
   );
 }

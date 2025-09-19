@@ -260,6 +260,7 @@ model InventoryTransaction {
   lotNo       String?  @db.VarChar(50)
   expiryDate  DateTime?
   reference   String?  @db.VarChar(100)
+  notes       String?  @db.VarChar(500)
 
   item        Item      @relation(fields: [itemId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   warehouse   Warehouse @relation(fields: [warehouseId], references: [id], onDelete: NoAction, onUpdate: NoAction)

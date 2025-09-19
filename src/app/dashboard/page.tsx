@@ -20,6 +20,17 @@ interface RecentActivity {
   user: string;
 }
 
+interface Order {
+  id: string;
+  orderNo?: string;
+  poNo?: string;
+  status: string;
+  orderDate: string;
+  customer?: { name: string };
+  vendor?: { name: string };
+  totalAmount: number;
+}
+
 export default function DashboardPage() {
   const [currentUser, setCurrentUser] = useState<string>("");
   const [stats, setStats] = useState<DashboardStats>({
@@ -33,11 +44,14 @@ export default function DashboardPage() {
   const [recentActivities, setRecentActivities] = useState<RecentActivity[]>(
     []
   );
+  const [pendingOrders, setPendingOrders] = useState<Order[]>([]);
+  const [inProgressOrders, setInProgressOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     fetchCurrentUser();
     fetchDashboardData();
+    fetchOrdersData();
   }, []);
 
   const fetchCurrentUser = async () => {
@@ -68,6 +82,38 @@ export default function DashboardPage() {
       console.error("Error fetching dashboard data:", error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchOrdersData = async () => {
+    try {
+      // 승인 대기중인 주문 (PENDING)
+      const pendingResponse = await fetch("/api/orders?status=PENDING", {
+        credentials: "include",
+      });
+      if (pendingResponse.ok) {
+        const pendingData = await pendingResponse.json();
+        // API 응답이 배열인지 확인하고 안전하게 처리
+        const orders = Array.isArray(pendingData)
+          ? pendingData
+          : pendingData.orders || [];
+        setPendingOrders(orders.slice(0, 5)); // 최대 5개만 표시
+      }
+
+      // 진행중인 주문 (IN_PROGRESS)
+      const inProgressResponse = await fetch("/api/orders?status=IN_PROGRESS", {
+        credentials: "include",
+      });
+      if (inProgressResponse.ok) {
+        const inProgressData = await inProgressResponse.json();
+        // API 응답이 배열인지 확인하고 안전하게 처리
+        const orders = Array.isArray(inProgressData)
+          ? inProgressData
+          : inProgressData.orders || [];
+        setInProgressOrders(orders.slice(0, 5)); // 최대 5개만 표시
+      }
+    } catch (error) {
+      console.error("Error fetching orders data:", error);
     }
   };
 
@@ -320,98 +366,199 @@ export default function DashboardPage() {
               </div>
             </div>
 
-            {/* Quick Actions */}
+            {/* Pending Orders */}
             <div
               style={{
                 marginTop: "32px",
                 background: "#ffffff",
                 border: "1px solid #e5e7eb",
                 borderRadius: "12px",
-                padding: "24px",
+                overflow: "hidden",
                 boxShadow: "0 1px 3px rgba(0,0,0,0.1)",
               }}
             >
-              <h2
-                style={{
-                  fontSize: "18px",
-                  fontWeight: "600",
-                  color: "#000000",
-                  marginBottom: "20px",
-                }}
-              >
-                빠른 작업
-              </h2>
               <div
                 style={{
-                  display: "grid",
-                  gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
-                  gap: "16px",
+                  padding: "20px",
+                  borderBottom: "1px solid #e5e7eb",
+                  background: "#fef3c7",
                 }}
               >
-                <button
-                  onClick={() => (window.location.href = "/inventory")}
+                <h2
                   style={{
-                    padding: "16px",
-                    background: "#f0f9ff",
-                    border: "1px solid #0ea5e9",
-                    borderRadius: "8px",
-                    fontSize: "14px",
-                    fontWeight: "500",
+                    fontSize: "18px",
+                    fontWeight: "600",
                     color: "#000000",
-                    cursor: "pointer",
-                    transition: "all 0.2s",
+                    margin: 0,
                   }}
                 >
-                  📦 재고 관리
-                </button>
-                <button
-                  onClick={() => (window.location.href = "/orders")}
+                  ⏳ 승인 대기중인 주문
+                </h2>
+              </div>
+              <div style={{ padding: "20px" }}>
+                {pendingOrders.length === 0 ? (
+                  <div
+                    style={{
+                      textAlign: "center",
+                      color: "#000000",
+                      padding: "40px",
+                    }}
+                  >
+                    승인 대기중인 주문이 없습니다.
+                  </div>
+                ) : (
+                  <div
+                    style={{
+                      display: "flex",
+                      flexDirection: "column",
+                      gap: "12px",
+                    }}
+                  >
+                    {pendingOrders.map((order) => (
+                      <div
+                        key={order.id}
+                        style={{
+                          display: "flex",
+                          justifyContent: "space-between",
+                          alignItems: "center",
+                          padding: "12px",
+                          background: "#f8fafc",
+                          borderRadius: "8px",
+                          border: "1px solid #e5e7eb",
+                        }}
+                      >
+                        <div>
+                          <div
+                            style={{
+                              fontSize: "14px",
+                              fontWeight: "500",
+                              color: "#000000",
+                              marginBottom: "4px",
+                            }}
+                          >
+                            {order.orderNo || order.poNo}
+                          </div>
+                          <div
+                            style={{
+                              fontSize: "12px",
+                              color: "#000000",
+                            }}
+                          >
+                            {order.customer?.name || order.vendor?.name} •{" "}
+                            {new Date(order.orderDate).toLocaleDateString()}
+                          </div>
+                        </div>
+                        <div
+                          style={{
+                            fontSize: "14px",
+                            fontWeight: "600",
+                            color: "#000000",
+                          }}
+                        >
+                          ₩{order.totalAmount.toLocaleString()}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* In Progress Orders */}
+            <div
+              style={{
+                marginTop: "20px",
+                background: "#ffffff",
+                border: "1px solid #e5e7eb",
+                borderRadius: "12px",
+                overflow: "hidden",
+                boxShadow: "0 1px 3px rgba(0,0,0,0.1)",
+              }}
+            >
+              <div
+                style={{
+                  padding: "20px",
+                  borderBottom: "1px solid #e5e7eb",
+                  background: "#dbeafe",
+                }}
+              >
+                <h2
                   style={{
-                    padding: "16px",
-                    background: "#f0fdf4",
-                    border: "1px solid #22c55e",
-                    borderRadius: "8px",
-                    fontSize: "14px",
-                    fontWeight: "500",
+                    fontSize: "18px",
+                    fontWeight: "600",
                     color: "#000000",
-                    cursor: "pointer",
-                    transition: "all 0.2s",
+                    margin: 0,
                   }}
                 >
-                  📋 주문 관리
-                </button>
-                <button
-                  onClick={() => (window.location.href = "/customers")}
-                  style={{
-                    padding: "16px",
-                    background: "#fef7ff",
-                    border: "1px solid #a855f7",
-                    borderRadius: "8px",
-                    fontSize: "14px",
-                    fontWeight: "500",
-                    color: "#000000",
-                    cursor: "pointer",
-                    transition: "all 0.2s",
-                  }}
-                >
-                  👥 거래처 관리
-                </button>
-                <button
-                  onClick={() => (window.location.href = "/reports")}
-                  style={{
-                    padding: "16px",
-                    background: "#fffbeb",
-                    border: "1px solid #f59e0b",
-                    borderRadius: "8px",
-                    fontSize: "14px",
-                    fontWeight: "500",
-                    color: "#000000",
-                    cursor: "pointer",
-                    transition: "all 0.2s",
-                  }}
-                >
-                  📈 보고서
-                </button>
+                  🔄 진행중인 주문
+                </h2>
+              </div>
+              <div style={{ padding: "20px" }}>
+                {inProgressOrders.length === 0 ? (
+                  <div
+                    style={{
+                      textAlign: "center",
+                      color: "#000000",
+                      padding: "40px",
+                    }}
+                  >
+                    진행중인 주문이 없습니다.
+                  </div>
+                ) : (
+                  <div
+                    style={{
+                      display: "flex",
+                      flexDirection: "column",
+                      gap: "12px",
+                    }}
+                  >
+                    {inProgressOrders.map((order) => (
+                      <div
+                        key={order.id}
+                        style={{
+                          display: "flex",
+                          justifyContent: "space-between",
+                          alignItems: "center",
+                          padding: "12px",
+                          background: "#f8fafc",
+                          borderRadius: "8px",
+                          border: "1px solid #e5e7eb",
+                        }}
+                      >
+                        <div>
+                          <div
+                            style={{
+                              fontSize: "14px",
+                              fontWeight: "500",
+                              color: "#000000",
+                              marginBottom: "4px",
+                            }}
+                          >
+                            {order.orderNo || order.poNo}
+                          </div>
+                          <div
+                            style={{
+                              fontSize: "12px",
+                              color: "#000000",
+                            }}
+                          >
+                            {order.customer?.name || order.vendor?.name} •{" "}
+                            {new Date(order.orderDate).toLocaleDateString()}
+                          </div>
+                        </div>
+                        <div
+                          style={{
+                            fontSize: "14px",
+                            fontWeight: "600",
+                            color: "#000000",
+                          }}
+                        >
+                          ₩{order.totalAmount.toLocaleString()}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
           </>

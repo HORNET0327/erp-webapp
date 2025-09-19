@@ -29,6 +29,7 @@ export default function InventoryModal({
     basePrice: 0,
     minStock: 0,
     leadTime: 0,
+    currentStock: 0,
   });
   const [loading, setLoading] = useState(false);
 
@@ -38,6 +39,7 @@ export default function InventoryModal({
         basePrice: item.basePrice || 0,
         minStock: item.minStock || 0,
         leadTime: item.leadTime || 0,
+        currentStock: item.currentStock || 0,
       });
     }
   }, [isOpen, item]);
@@ -164,6 +166,36 @@ export default function InventoryModal({
               <div style={{ fontSize: "12px", color: "#000000" }}>
                 현재 재고: {item.currentStock.toLocaleString()}
               </div>
+            </div>
+
+            <div style={{ marginBottom: "16px" }}>
+              <label
+                style={{
+                  display: "block",
+                  fontSize: "14px",
+                  fontWeight: "500",
+                  color: "#000000",
+                  marginBottom: "4px",
+                }}
+              >
+                현재 수량 *
+              </label>
+              <input
+                type="number"
+                name="currentStock"
+                value={formData.currentStock}
+                onChange={handleInputChange}
+                min="0"
+                style={{
+                  width: "100%",
+                  padding: "8px 12px",
+                  border: "1px solid #d1d5db",
+                  borderRadius: "6px",
+                  fontSize: "14px",
+                  color: "#000000",
+                }}
+                required
+              />
             </div>
 
             <div style={{ marginBottom: "16px" }}>

@@ -9,6 +9,25 @@ interface Item {
   brand?: { name: string };
   category?: { name: string };
   currentStock?: number;
+  basePrice?: number;
+}
+
+interface Vendor {
+  id: string;
+  name: string;
+  code: string;
+  contactPerson?: string;
+  phone?: string;
+  email?: string;
+}
+
+interface Customer {
+  id: string;
+  name: string;
+  code: string;
+  contactPerson?: string;
+  phone?: string;
+  email?: string;
 }
 
 interface OrderLine {
@@ -45,7 +64,17 @@ export default function OrderModal({
     },
   ]);
   const [items, setItems] = useState<Item[]>([]);
+  const [vendors, setVendors] = useState<Vendor[]>([]);
+  const [customers, setCustomers] = useState<Customer[]>([]);
   const [loading, setLoading] = useState(false);
+  const [vendorSearch, setVendorSearch] = useState("");
+  const [customerSearch, setCustomerSearch] = useState("");
+  const [showVendorDropdown, setShowVendorDropdown] = useState(false);
+  const [showCustomerDropdown, setShowCustomerDropdown] = useState(false);
+  const [selectedVendor, setSelectedVendor] = useState<Vendor | null>(null);
+  const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(
+    null
+  );
   const [orderData, setOrderData] = useState({
     customerOrVendorId: "",
     orderDate: new Date().toISOString().split("T")[0],
@@ -57,8 +86,60 @@ export default function OrderModal({
   useEffect(() => {
     if (isOpen) {
       fetchItems();
+      if (type === "purchase") {
+        fetchVendors();
+      } else if (type === "sales") {
+        fetchCustomers();
+      }
+    } else {
+      // 모달이 닫힐 때 state 초기화
+      setVendorSearch("");
+      setCustomerSearch("");
+      setShowVendorDropdown(false);
+      setShowCustomerDropdown(false);
+      setSelectedVendor(null);
+      setSelectedCustomer(null);
+      setOrderData({
+        customerOrVendorId: "",
+        orderDate: new Date().toISOString().split("T")[0],
+        expectedDate: "",
+        status: "pending",
+        notes: "",
+      });
+      // 주문 라인들도 초기화
+      setOrderLines([
+        {
+          itemId: "",
+          item: undefined,
+          itemSearch: "",
+          showDropdown: false,
+          qty: 1,
+          unitPrice: 0,
+          total: 0,
+        },
+      ]);
     }
-  }, [isOpen]);
+  }, [isOpen, type]);
+
+  // 외부 클릭 시 드롭다운 닫기
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as Element;
+      if (showVendorDropdown && !target.closest("[data-vendor-dropdown]")) {
+        setShowVendorDropdown(false);
+      }
+      if (showCustomerDropdown && !target.closest("[data-customer-dropdown]")) {
+        setShowCustomerDropdown(false);
+      }
+    };
+
+    if (showVendorDropdown || showCustomerDropdown) {
+      document.addEventListener("mousedown", handleClickOutside);
+      return () => {
+        document.removeEventListener("mousedown", handleClickOutside);
+      };
+    }
+  }, [showVendorDropdown, showCustomerDropdown]);
 
   const fetchItems = async () => {
     try {
@@ -74,6 +155,44 @@ export default function OrderModal({
     }
   };
 
+  const fetchVendors = async () => {
+    try {
+      const response = await fetch("/api/vendors", {
+        credentials: "include",
+      });
+      if (response.ok) {
+        const data = await response.json();
+        // API 응답이 { vendors: [...] } 형태이므로 vendors 속성 추출
+        setVendors(Array.isArray(data.vendors) ? data.vendors : []);
+      } else {
+        console.error("Failed to fetch vendors:", response.status);
+        setVendors([]);
+      }
+    } catch (error) {
+      console.error("Error fetching vendors:", error);
+      setVendors([]);
+    }
+  };
+
+  const fetchCustomers = async () => {
+    try {
+      const response = await fetch("/api/customers", {
+        credentials: "include",
+      });
+      if (response.ok) {
+        const data = await response.json();
+        // API 응답이 { customers: [...] } 형태이므로 customers 속성 추출
+        setCustomers(Array.isArray(data.customers) ? data.customers : []);
+      } else {
+        console.error("Failed to fetch customers:", response.status);
+        setCustomers([]);
+      }
+    } catch (error) {
+      console.error("Error fetching customers:", error);
+      setCustomers([]);
+    }
+  };
+
   const handleOrderDataChange = (
     e: React.ChangeEvent<
       HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement
@@ -85,6 +204,52 @@ export default function OrderModal({
       [name]: value,
     }));
   };
+
+  const handleVendorSearch = (value: string) => {
+    setVendorSearch(value);
+    setShowVendorDropdown(true); // 항상 드롭다운 표시
+    if (value.length === 0) {
+      setSelectedVendor(null);
+      setOrderData((prev) => ({ ...prev, customerOrVendorId: "" }));
+    }
+  };
+
+  const selectVendor = (vendor: Vendor) => {
+    setSelectedVendor(vendor);
+    setVendorSearch(`${vendor.name} (${vendor.code})`);
+    setShowVendorDropdown(false);
+    setOrderData((prev) => ({ ...prev, customerOrVendorId: vendor.id }));
+  };
+
+  const handleCustomerSearch = (value: string) => {
+    setCustomerSearch(value);
+    setShowCustomerDropdown(true); // 항상 드롭다운 표시
+    if (value.length === 0) {
+      setSelectedCustomer(null);
+      setOrderData((prev) => ({ ...prev, customerOrVendorId: "" }));
+    }
+  };
+
+  const selectCustomer = (customer: Customer) => {
+    setSelectedCustomer(customer);
+    setCustomerSearch(`${customer.name} (${customer.code})`);
+    setShowCustomerDropdown(false);
+    setOrderData((prev) => ({ ...prev, customerOrVendorId: customer.id }));
+  };
+
+  const filteredVendors = (vendors || []).filter(
+    (vendor) =>
+      vendorSearch.length === 0 || // 검색어가 없으면 모든 공급업체 표시
+      vendor.name.toLowerCase().includes(vendorSearch.toLowerCase()) ||
+      vendor.code.toLowerCase().includes(vendorSearch.toLowerCase())
+  );
+
+  const filteredCustomers = (customers || []).filter(
+    (customer) =>
+      customerSearch.length === 0 || // 검색어가 없으면 모든 고객 표시
+      customer.name.toLowerCase().includes(customerSearch.toLowerCase()) ||
+      customer.code.toLowerCase().includes(customerSearch.toLowerCase())
+  );
 
   const handleItemSearch = (index: number, value: string) => {
     const updatedLines = [...orderLines];
@@ -99,6 +264,13 @@ export default function OrderModal({
     updatedLines[index].item = item;
     updatedLines[index].itemSearch = `${item.name} (${item.code})`;
     updatedLines[index].showDropdown = false;
+
+    // 기본 판매단가가 있으면 자동으로 단가에 입력
+    if (item.basePrice && item.basePrice > 0) {
+      updatedLines[index].unitPrice = item.basePrice;
+      updatedLines[index].total = updatedLines[index].qty * item.basePrice;
+    }
+
     setOrderLines(updatedLines);
   };
 
@@ -287,21 +459,165 @@ export default function OrderModal({
               >
                 {type === "sales" ? "고객" : "공급업체"}
               </label>
-              <input
-                type="text"
-                name="customerOrVendorId"
-                value={orderData.customerOrVendorId}
-                onChange={handleOrderDataChange}
-                style={{
-                  width: "100%",
-                  padding: "8px 12px",
-                  border: "1px solid #d1d5db",
-                  borderRadius: "6px",
-                  fontSize: "14px",
-                  color: "#000000",
-                }}
-                required
-              />
+              {type === "purchase" ? (
+                <div style={{ position: "relative" }} data-vendor-dropdown>
+                  <input
+                    type="text"
+                    value={vendorSearch}
+                    onChange={(e) => handleVendorSearch(e.target.value)}
+                    onFocus={() => setShowVendorDropdown(true)}
+                    placeholder="공급업체를 검색하세요..."
+                    style={{
+                      width: "100%",
+                      padding: "8px 12px",
+                      border: selectedVendor
+                        ? "2px solid #3b82f6"
+                        : "1px solid #d1d5db",
+                      borderRadius: "6px",
+                      fontSize: "14px",
+                      color: "#000000",
+                    }}
+                    required
+                  />
+                  {showVendorDropdown && filteredVendors.length > 0 && (
+                    <div
+                      data-vendor-dropdown
+                      style={{
+                        position: "absolute",
+                        top: "100%",
+                        left: 0,
+                        right: 0,
+                        background: "#ffffff",
+                        border: "1px solid #d1d5db",
+                        borderRadius: "6px",
+                        boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)",
+                        maxHeight: "200px",
+                        overflow: "auto",
+                        zIndex: 1001,
+                      }}
+                    >
+                      {filteredVendors.map((vendor) => (
+                        <div
+                          key={vendor.id}
+                          onClick={() => selectVendor(vendor)}
+                          style={{
+                            padding: "12px",
+                            cursor: "pointer",
+                            borderBottom: "1px solid #f3f4f6",
+                            color: "#000000",
+                          }}
+                          onMouseEnter={(e) => {
+                            e.currentTarget.style.background = "#f8fafc";
+                          }}
+                          onMouseLeave={(e) => {
+                            e.currentTarget.style.background = "#ffffff";
+                          }}
+                        >
+                          <div
+                            style={{
+                              fontSize: "14px",
+                              fontWeight: "500",
+                              marginBottom: "4px",
+                            }}
+                          >
+                            {vendor.name}
+                          </div>
+                          <div
+                            style={{
+                              fontSize: "12px",
+                              color: "#6b7280",
+                            }}
+                          >
+                            {vendor.code}
+                            {vendor.contactPerson &&
+                              ` • ${vendor.contactPerson}`}
+                            {vendor.phone && ` • ${vendor.phone}`}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div style={{ position: "relative" }} data-customer-dropdown>
+                  <input
+                    type="text"
+                    value={customerSearch}
+                    onChange={(e) => handleCustomerSearch(e.target.value)}
+                    onFocus={() => setShowCustomerDropdown(true)}
+                    placeholder="고객을 검색하세요..."
+                    style={{
+                      width: "100%",
+                      padding: "8px 12px",
+                      border: selectedCustomer
+                        ? "2px solid #3b82f6"
+                        : "1px solid #d1d5db",
+                      borderRadius: "6px",
+                      fontSize: "14px",
+                      color: "#000000",
+                    }}
+                    required
+                  />
+                  {showCustomerDropdown && filteredCustomers.length > 0 && (
+                    <div
+                      data-customer-dropdown
+                      style={{
+                        position: "absolute",
+                        top: "100%",
+                        left: 0,
+                        right: 0,
+                        background: "#ffffff",
+                        border: "1px solid #d1d5db",
+                        borderRadius: "6px",
+                        boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)",
+                        maxHeight: "200px",
+                        overflow: "auto",
+                        zIndex: 1001,
+                      }}
+                    >
+                      {filteredCustomers.map((customer) => (
+                        <div
+                          key={customer.id}
+                          onClick={() => selectCustomer(customer)}
+                          style={{
+                            padding: "12px",
+                            cursor: "pointer",
+                            borderBottom: "1px solid #f3f4f6",
+                            color: "#000000",
+                          }}
+                          onMouseEnter={(e) => {
+                            e.currentTarget.style.background = "#f8fafc";
+                          }}
+                          onMouseLeave={(e) => {
+                            e.currentTarget.style.background = "#ffffff";
+                          }}
+                        >
+                          <div
+                            style={{
+                              fontSize: "14px",
+                              fontWeight: "500",
+                              marginBottom: "4px",
+                            }}
+                          >
+                            {customer.name}
+                          </div>
+                          <div
+                            style={{
+                              fontSize: "12px",
+                              color: "#6b7280",
+                            }}
+                          >
+                            {customer.code}
+                            {customer.contactPerson &&
+                              ` • ${customer.contactPerson}`}
+                            {customer.phone && ` • ${customer.phone}`}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
 
             <div>

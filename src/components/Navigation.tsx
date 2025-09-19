@@ -118,20 +118,33 @@ export default function Navigation({ currentUser }: NavigationProps) {
             {currentUser}
           </span>
         )}
-        <Link
-          href="/logout"
+        <button
+          onClick={async () => {
+            try {
+              const response = await fetch("/api/logout", {
+                method: "POST",
+                credentials: "include",
+              });
+              if (response.ok) {
+                window.location.href = "/login";
+              }
+            } catch (error) {
+              console.error("Logout error:", error);
+            }
+          }}
           style={{
             padding: "8px 16px",
             background: "#ef4444",
             color: "#ffffff",
-            textDecoration: "none",
+            border: "none",
             borderRadius: 6,
             fontSize: 14,
             fontWeight: 500,
+            cursor: "pointer",
           }}
         >
           로그아웃
-        </Link>
+        </button>
       </div>
     </nav>
   );

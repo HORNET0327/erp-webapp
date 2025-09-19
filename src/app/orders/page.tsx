@@ -293,9 +293,9 @@ export default function OrdersPage() {
           <div
             style={{
               background: "linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%)",
-              border: "2px solid #0ea5e9",
+              border: "2px solid #dbeafe",
               borderRadius: "12px",
-              padding: "20px",
+              padding: "10px",
               marginBottom: "24px",
               boxShadow: "0 4px 6px rgba(14, 165, 233, 0.1)",
             }}
@@ -305,8 +305,8 @@ export default function OrdersPage() {
                 fontSize: "16px",
                 fontWeight: "600",
                 color: "#000000",
-                marginBottom: "16px",
-                paddingBottom: "8px",
+                marginBottom: "8px",
+                paddingBottom: "4px",
                 borderBottom: "2px solid #f3f4f6",
               }}
             >
