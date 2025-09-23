@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 interface EmailModalProps {
   isOpen: boolean;
@@ -8,6 +8,7 @@ interface EmailModalProps {
   orderId?: string;
   customerEmail?: string;
   customerName?: string;
+  quotationImageData?: string;
 }
 
 export default function EmailModal({
@@ -17,6 +18,7 @@ export default function EmailModal({
   orderId,
   customerEmail,
   customerName,
+  quotationImageData,
 }: EmailModalProps) {
   const [formData, setFormData] = useState({
     to: customerEmail || "",
@@ -27,6 +29,19 @@ export default function EmailModal({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+
+  // 모달이 열릴 때 초기값 설정
+  useEffect(() => {
+    if (isOpen) {
+      console.log("EmailModal - isOpen, customerEmail:", isOpen, customerEmail);
+      setFormData({
+        to: customerEmail || "",
+        subject: "",
+        message: "",
+        type: "info" as "info" | "warning" | "error" | "success",
+      });
+    }
+  }, [isOpen, customerEmail]);
 
   const handleInputChange = (
     e: React.ChangeEvent<
@@ -61,6 +76,7 @@ export default function EmailModal({
             to: formData.to,
             subject: formData.subject,
             message: formData.message,
+            quotationImageData,
           }),
         });
       } else {

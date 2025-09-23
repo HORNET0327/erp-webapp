@@ -51,7 +51,7 @@ async function main() {
 
   // Items
   const items = [
-    // P&F Sensors
+    // P&F Proximity Sensors
     {
       code: "PF-NBN8-18GM60-E2",
       name: "P&F 근접센서 NBN8-18GM60-E2",
@@ -73,6 +73,211 @@ async function main() {
       hasSerial: true,
       minStock: 8,
       leadTime: 14,
+    },
+    {
+      code: "PF-NBN4-12GM50-E0",
+      name: "P&F 근접센서 NBN4-12GM50-E0",
+      categoryId: sensorCat.id,
+      brandId: pf.id,
+      model: "NBN4-12GM50-E0",
+      spec: "12mm, M12, 3선식, NPN",
+      hasSerial: true,
+      minStock: 15,
+      leadTime: 14,
+    },
+    {
+      code: "PF-NBB4-12GM50-E0",
+      name: "P&F 근접센서 NBB4-12GM50-E0",
+      categoryId: sensorCat.id,
+      brandId: pf.id,
+      model: "NBB4-12GM50-E0",
+      spec: "12mm, M12, 2선식, PNP",
+      hasSerial: true,
+      minStock: 12,
+      leadTime: 14,
+    },
+    {
+      code: "PF-NBN15-30GM50-E0",
+      name: "P&F 근접센서 NBN15-30GM50-E0",
+      categoryId: sensorCat.id,
+      brandId: pf.id,
+      model: "NBN15-30GM50-E0",
+      spec: "30mm, M30, 3선식, NPN",
+      hasSerial: true,
+      minStock: 6,
+      leadTime: 14,
+    },
+    // P&F Photoelectric Sensors
+    {
+      code: "PF-OB1200-18GM50-E0",
+      name: "P&F 포토센서 OB1200-18GM50-E0",
+      categoryId: sensorCat.id,
+      brandId: pf.id,
+      model: "OB1200-18GM50-E0",
+      spec: "1200mm, M18, 3선식, NPN",
+      hasSerial: true,
+      minStock: 8,
+      leadTime: 14,
+    },
+    {
+      code: "PF-OB1200-18GM50-E2",
+      name: "P&F 포토센서 OB1200-18GM50-E2",
+      categoryId: sensorCat.id,
+      brandId: pf.id,
+      model: "OB1200-18GM50-E2",
+      spec: "1200mm, M18, 3선식, PNP",
+      hasSerial: true,
+      minStock: 8,
+      leadTime: 14,
+    },
+    {
+      code: "PF-OB2000-30GM50-E0",
+      name: "P&F 포토센서 OB2000-30GM50-E0",
+      categoryId: sensorCat.id,
+      brandId: pf.id,
+      model: "OB2000-30GM50-E0",
+      spec: "2000mm, M30, 3선식, NPN",
+      hasSerial: true,
+      minStock: 5,
+      leadTime: 14,
+    },
+    // P&F Laser Sensors
+    {
+      code: "PF-ODM2000-18GM50-E0",
+      name: "P&F 레이저센서 ODM2000-18GM50-E0",
+      categoryId: sensorCat.id,
+      brandId: pf.id,
+      model: "ODM2000-18GM50-E0",
+      spec: "2000mm, M18, 3선식, NPN",
+      hasSerial: true,
+      minStock: 4,
+      leadTime: 21,
+    },
+    {
+      code: "PF-ODM5000-30GM50-E0",
+      name: "P&F 레이저센서 ODM5000-30GM50-E0",
+      categoryId: sensorCat.id,
+      brandId: pf.id,
+      model: "ODM5000-30GM50-E0",
+      spec: "5000mm, M30, 3선식, NPN",
+      hasSerial: true,
+      minStock: 3,
+      leadTime: 21,
+    },
+    // P&F Ultrasonic Sensors
+    {
+      code: "PF-UC2000-30GM50-E0",
+      name: "P&F 초음파센서 UC2000-30GM50-E0",
+      categoryId: sensorCat.id,
+      brandId: pf.id,
+      model: "UC2000-30GM50-E0",
+      spec: "2000mm, M30, 3선식, NPN",
+      hasSerial: true,
+      minStock: 6,
+      leadTime: 21,
+    },
+    {
+      code: "PF-UC4000-30GM50-E0",
+      name: "P&F 초음파센서 UC4000-30GM50-E0",
+      categoryId: sensorCat.id,
+      brandId: pf.id,
+      model: "UC4000-30GM50-E0",
+      spec: "4000mm, M30, 3선식, NPN",
+      hasSerial: true,
+      minStock: 4,
+      leadTime: 21,
+    },
+    // P&F Encoders
+    {
+      code: "PF-EN500-1024GM50-E0",
+      name: "P&F 엔코더 EN500-1024GM50-E0",
+      categoryId: sensorCat.id,
+      brandId: pf.id,
+      model: "EN500-1024GM50-E0",
+      spec: "1024 PPR, M18, 3선식, NPN",
+      hasSerial: true,
+      minStock: 8,
+      leadTime: 21,
+    },
+    {
+      code: "PF-EN500-2048GM50-E0",
+      name: "P&F 엔코더 EN500-2048GM50-E0",
+      categoryId: sensorCat.id,
+      brandId: pf.id,
+      model: "EN500-2048GM50-E0",
+      spec: "2048 PPR, M18, 3선식, NPN",
+      hasSerial: true,
+      minStock: 6,
+      leadTime: 21,
+    },
+    // P&F RF-ID Sensors
+    {
+      code: "PF-RF100-13GM50-E0",
+      name: "P&F RF-ID센서 RF100-13GM50-E0",
+      categoryId: sensorCat.id,
+      brandId: pf.id,
+      model: "RF100-13GM50-E0",
+      spec: "13.56MHz, M18, 3선식, NPN",
+      hasSerial: true,
+      minStock: 5,
+      leadTime: 28,
+    },
+    {
+      code: "PF-RF200-13GM50-E0",
+      name: "P&F RF-ID센서 RF200-13GM50-E0",
+      categoryId: sensorCat.id,
+      brandId: pf.id,
+      model: "RF200-13GM50-E0",
+      spec: "13.56MHz, M18, 3선식, PNP",
+      hasSerial: true,
+      minStock: 5,
+      leadTime: 28,
+    },
+    // P&F Linear Sensors
+    {
+      code: "PF-LS100-50GM50-E0",
+      name: "P&F 리니어센서 LS100-50GM50-E0",
+      categoryId: sensorCat.id,
+      brandId: pf.id,
+      model: "LS100-50GM50-E0",
+      spec: "50mm, M18, 3선식, NPN",
+      hasSerial: true,
+      minStock: 4,
+      leadTime: 28,
+    },
+    {
+      code: "PF-LS200-100GM50-E0",
+      name: "P&F 리니어센서 LS200-100GM50-E0",
+      categoryId: sensorCat.id,
+      brandId: pf.id,
+      model: "LS200-100GM50-E0",
+      spec: "100mm, M18, 3선식, NPN",
+      hasSerial: true,
+      minStock: 3,
+      leadTime: 28,
+    },
+    // P&F Vision Sensors
+    {
+      code: "PF-VS100-18GM50-E0",
+      name: "P&F 비전센서 VS100-18GM50-E0",
+      categoryId: sensorCat.id,
+      brandId: pf.id,
+      model: "VS100-18GM50-E0",
+      spec: "M18, 3선식, NPN, 카메라형",
+      hasSerial: true,
+      minStock: 2,
+      leadTime: 35,
+    },
+    {
+      code: "PF-VS200-30GM50-E0",
+      name: "P&F 비전센서 VS200-30GM50-E0",
+      categoryId: sensorCat.id,
+      brandId: pf.id,
+      model: "VS200-30GM50-E0",
+      spec: "M30, 3선식, NPN, 스캐너형",
+      hasSerial: true,
+      minStock: 2,
+      leadTime: 35,
     },
     // WAGO Cables
     {
@@ -126,10 +331,38 @@ async function main() {
   });
 
   const inventoryData = [
+    // P&F Proximity Sensors
     { itemCode: "PF-NBN8-18GM60-E2", qty: 25, unitCost: 45000 },
     { itemCode: "PF-NBB8-18GM50-E0", qty: 18, unitCost: 42000 },
+    { itemCode: "PF-NBN4-12GM50-E0", qty: 30, unitCost: 38000 },
+    { itemCode: "PF-NBB4-12GM50-E0", qty: 25, unitCost: 36000 },
+    { itemCode: "PF-NBN15-30GM50-E0", qty: 12, unitCost: 55000 },
+    // P&F Photoelectric Sensors
+    { itemCode: "PF-OB1200-18GM50-E0", qty: 15, unitCost: 65000 },
+    { itemCode: "PF-OB1200-18GM50-E2", qty: 12, unitCost: 68000 },
+    { itemCode: "PF-OB2000-30GM50-E0", qty: 8, unitCost: 85000 },
+    // P&F Laser Sensors
+    { itemCode: "PF-ODM2000-18GM50-E0", qty: 6, unitCost: 120000 },
+    { itemCode: "PF-ODM5000-30GM50-E0", qty: 4, unitCost: 180000 },
+    // P&F Ultrasonic Sensors
+    { itemCode: "PF-UC2000-30GM50-E0", qty: 10, unitCost: 95000 },
+    { itemCode: "PF-UC4000-30GM50-E0", qty: 6, unitCost: 125000 },
+    // P&F Encoders
+    { itemCode: "PF-EN500-1024GM50-E0", qty: 15, unitCost: 75000 },
+    { itemCode: "PF-EN500-2048GM50-E0", qty: 12, unitCost: 85000 },
+    // P&F RF-ID Sensors
+    { itemCode: "PF-RF100-13GM50-E0", qty: 8, unitCost: 150000 },
+    { itemCode: "PF-RF200-13GM50-E0", qty: 6, unitCost: 165000 },
+    // P&F Linear Sensors
+    { itemCode: "PF-LS100-50GM50-E0", qty: 5, unitCost: 200000 },
+    { itemCode: "PF-LS200-100GM50-E0", qty: 3, unitCost: 280000 },
+    // P&F Vision Sensors
+    { itemCode: "PF-VS100-18GM50-E0", qty: 2, unitCost: 350000 },
+    { itemCode: "PF-VS200-30GM50-E0", qty: 2, unitCost: 450000 },
+    // WAGO Cables
     { itemCode: "WAGO-857-301", qty: 3, unitCost: 850000 },
     { itemCode: "WAGO-857-401", qty: 2, unitCost: 950000 },
+    // MURR Connectors
     { itemCode: "MURR-6900M12-4", qty: 45, unitCost: 12000 },
   ];
 
@@ -154,13 +387,23 @@ async function main() {
   const pfSensors = itemsInDb.filter((i) => i.brandId === pf.id);
   for (const sensor of pfSensors) {
     for (let i = 1; i <= 5; i++) {
-      await prisma.serialNumber.create({
-        data: {
-          itemId: sensor.id,
-          serialNo: `${sensor.code}-${String(i).padStart(3, "0")}`,
-          status: "AVAILABLE",
-        },
-      });
+      const serialNo = `${sensor.code}-${String(i).padStart(3, "0")}`;
+      try {
+        await prisma.serialNumber.create({
+          data: {
+            itemId: sensor.id,
+            serialNo: serialNo,
+            status: "AVAILABLE",
+          },
+        });
+      } catch (error) {
+        if (error.code === "P2002") {
+          // 시리얼 번호가 이미 존재하는 경우 무시
+          console.log(`Serial number ${serialNo} already exists, skipping...`);
+        } else {
+          throw error;
+        }
+      }
     }
   }
 
@@ -175,11 +418,3 @@ main()
   .finally(async () => {
     await prisma.$disconnect();
   });
-
-
-
-
-
-
-
-

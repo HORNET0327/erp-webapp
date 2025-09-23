@@ -327,24 +327,6 @@ export default function OrderModal({
     setLoading(true);
 
     try {
-      // 주문번호 생성 (날짜 + 랜덤)
-      const orderNo =
-        type === "sales"
-          ? `SO${new Date()
-              .toISOString()
-              .slice(0, 10)
-              .replace(/-/g, "")}${Math.random()
-              .toString(36)
-              .substr(2, 4)
-              .toUpperCase()}`
-          : `PO${new Date()
-              .toISOString()
-              .slice(0, 10)
-              .replace(/-/g, "")}${Math.random()
-              .toString(36)
-              .substr(2, 4)
-              .toUpperCase()}`;
-
       // 주문 라인 데이터 변환
       const lines = orderLines
         .filter((line) => line.itemId && line.qty > 0)
@@ -358,7 +340,6 @@ export default function OrderModal({
       const orderPayload = {
         type,
         orderData: {
-          orderNo,
           [type === "sales" ? "customerId" : "vendorId"]:
             orderData.customerOrVendorId,
           orderDate: orderData.orderDate,
@@ -826,10 +807,12 @@ export default function OrderModal({
                               borderBottom: "1px solid #f3f4f6",
                             }}
                           >
-                            <div style={{ fontWeight: "500" }}>
+                            <div
+                              style={{ fontWeight: "500", color: "#374151" }}
+                            >
                               {item.name} ({item.code})
                             </div>
-                            <div style={{ fontSize: "10px", color: "#000000" }}>
+                            <div style={{ fontSize: "10px", color: "#6b7280" }}>
                               {item.brand?.name} | {item.category?.name}
                               {item.currentStock !== undefined && (
                                 <span

@@ -6,6 +6,7 @@ import OrderModal from "@/components/OrderModal";
 import OrderDetailModal from "@/components/OrderDetailModal";
 import QuotationModal from "@/components/QuotationModal";
 import EmailModal from "@/components/EmailModal";
+import HistoryModal from "@/components/HistoryModal";
 
 interface Order {
   id: string;
@@ -154,6 +155,7 @@ export default function OrdersPage() {
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
   const [isQuotationModalOpen, setIsQuotationModalOpen] = useState(false);
   const [isEmailModalOpen, setIsEmailModalOpen] = useState(false);
+  const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState<any>(null);
 
   useEffect(() => {
@@ -249,19 +251,156 @@ export default function OrdersPage() {
     setSelectedOrder(null);
   };
 
+  const handleHistoryModalClose = () => {
+    setIsHistoryModalOpen(false);
+    setSelectedOrder(null);
+  };
+
   const handleCreateQuotation = (order: any) => {
     setSelectedOrder(order);
     setIsQuotationModalOpen(true);
   };
 
+  const handleCreateShipment = async (order: any) => {
+    // 출고지시 기능 구현
+    if (confirm(`주문 ${order.orderNo}에 대한 출고지시를 생성하시겠습니까?`)) {
+      try {
+        // TODO: 출고지시 API 호출
+        console.log("출고지시 생성:", order);
+
+        // 활동 로그 기록
+        await fetch(`/api/orders/${order.id}/log-activity`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            action: "SHIPMENT_CREATE",
+            description: `출고지시를 생성했습니다: ${order.orderNo}`,
+            metadata: { orderNo: order.orderNo },
+          }),
+        });
+
+        alert("출고지시가 생성되었습니다.");
+      } catch (error) {
+        console.error("출고지시 생성 오류:", error);
+        alert("출고지시 생성 중 오류가 발생했습니다.");
+      }
+    }
+  };
+
+  const handleCreateOrder = async (order: any) => {
+    // 수주 등록 기능 구현
+    if (confirm(`주문 ${order.orderNo}에 대한 수주를 등록하시겠습니까?`)) {
+      try {
+        // TODO: 수주 등록 API 호출
+        console.log("수주 등록:", order);
+
+        // 활동 로그 기록
+        await fetch(`/api/orders/${order.id}/log-activity`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            action: "ORDER_REGISTER",
+            description: `수주등록을 완료했습니다: ${order.orderNo}`,
+            metadata: { orderNo: order.orderNo },
+          }),
+        });
+
+        alert("수주가 등록되었습니다.");
+      } catch (error) {
+        console.error("수주 등록 오류:", error);
+        alert("수주 등록 중 오류가 발생했습니다.");
+      }
+    }
+  };
+
+  const handleProcessShipment = async (order: any) => {
+    // 출고 처리 기능 구현
+    if (confirm(`주문 ${order.orderNo}에 대한 출고를 처리하시겠습니까?`)) {
+      try {
+        // TODO: 출고 처리 API 호출
+        console.log("출고 처리:", order);
+
+        // 활동 로그 기록
+        await fetch(`/api/orders/${order.id}/log-activity`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            action: "SHIPMENT_PROCESS",
+            description: `출고처리를 완료했습니다: ${order.orderNo}`,
+            metadata: { orderNo: order.orderNo },
+          }),
+        });
+
+        alert("출고가 처리되었습니다.");
+      } catch (error) {
+        console.error("출고 처리 오류:", error);
+        alert("출고 처리 중 오류가 발생했습니다.");
+      }
+    }
+  };
+
+  const handleIssueTaxInvoice = async (order: any) => {
+    // 세금계산서 발행 기능 구현
+    if (
+      confirm(`주문 ${order.orderNo}에 대한 세금계산서를 발행하시겠습니까?`)
+    ) {
+      try {
+        // TODO: 세금계산서 발행 API 호출
+        console.log("세금계산서 발행:", order);
+
+        // 활동 로그 기록
+        await fetch(`/api/orders/${order.id}/log-activity`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            action: "TAX_INVOICE_ISSUE",
+            description: `세금계산서를 발행했습니다: ${order.orderNo}`,
+            metadata: { orderNo: order.orderNo },
+          }),
+        });
+
+        alert("세금계산서가 발행되었습니다.");
+      } catch (error) {
+        console.error("세금계산서 발행 오류:", error);
+        alert("세금계산서 발행 중 오류가 발생했습니다.");
+      }
+    }
+  };
+
+  const handleRegisterPayment = async (order: any) => {
+    // 수금등록 기능 구현
+    if (confirm(`주문 ${order.orderNo}에 대한 수금을 등록하시겠습니까?`)) {
+      try {
+        // TODO: 수금등록 API 호출
+        console.log("수금등록:", order);
+
+        // 활동 로그 기록
+        await fetch(`/api/orders/${order.id}/log-activity`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            action: "PAYMENT_REGISTER",
+            description: `수금등록을 완료했습니다: ${order.orderNo}`,
+            metadata: { orderNo: order.orderNo },
+          }),
+        });
+
+        alert("수금이 등록되었습니다.");
+      } catch (error) {
+        console.error("수금등록 오류:", error);
+        alert("수금등록 중 오류가 발생했습니다.");
+      }
+    }
+  };
+
+  const handleViewHistory = (order: any) => {
+    setSelectedOrder(order);
+    setIsHistoryModalOpen(true);
+  };
+
   const handleQuotationModalClose = () => {
     setIsQuotationModalOpen(false);
     setSelectedOrder(null);
-  };
-
-  const handleSendQuotationEmail = (order: any) => {
-    setSelectedOrder(order);
-    setIsEmailModalOpen(true);
   };
 
   const handleEmailModalClose = () => {
@@ -524,6 +663,7 @@ export default function OrdersPage() {
                         color: "#000000",
                         textTransform: "uppercase",
                         letterSpacing: "0.05em",
+                        width: "150px",
                       }}
                     >
                       주문번호
@@ -537,6 +677,7 @@ export default function OrdersPage() {
                         color: "#000000",
                         textTransform: "uppercase",
                         letterSpacing: "0.05em",
+                        width: "120px",
                       }}
                     >
                       {activeTab === "sales" ? "고객" : "공급업체"}
@@ -550,6 +691,7 @@ export default function OrdersPage() {
                         color: "#000000",
                         textTransform: "uppercase",
                         letterSpacing: "0.05em",
+                        width: "100px",
                       }}
                     >
                       주문일
@@ -563,6 +705,7 @@ export default function OrdersPage() {
                         color: "#000000",
                         textTransform: "uppercase",
                         letterSpacing: "0.05em",
+                        width: "80px",
                       }}
                     >
                       상태
@@ -576,6 +719,7 @@ export default function OrdersPage() {
                         color: "#000000",
                         textTransform: "uppercase",
                         letterSpacing: "0.05em",
+                        width: "80px",
                       }}
                     >
                       담당자
@@ -589,6 +733,7 @@ export default function OrdersPage() {
                         color: "#000000",
                         textTransform: "uppercase",
                         letterSpacing: "0.05em",
+                        width: "100px",
                       }}
                     >
                       금액
@@ -602,6 +747,7 @@ export default function OrdersPage() {
                         color: "#000000",
                         textTransform: "uppercase",
                         letterSpacing: "0.05em",
+                        width: "500px",
                       }}
                     >
                       작업
@@ -616,6 +762,7 @@ export default function OrdersPage() {
                         borderBottom: "1px solid #f3f4f6",
                         cursor: "pointer",
                       }}
+                      onClick={() => handleViewDetails(order)}
                       onMouseEnter={(e) => {
                         e.currentTarget.style.background = "#f9fafb";
                       }}
@@ -689,22 +836,11 @@ export default function OrdersPage() {
                             display: "flex",
                             gap: "8px",
                             justifyContent: "center",
+                            flexWrap: "wrap",
+                            alignItems: "center",
                           }}
+                          onClick={(e) => e.stopPropagation()}
                         >
-                          <button
-                            onClick={() => handleViewDetails(order)}
-                            style={{
-                              padding: "6px 12px",
-                              background: "#3b82f6",
-                              color: "#ffffff",
-                              border: "none",
-                              borderRadius: "6px",
-                              fontSize: "12px",
-                              cursor: "pointer",
-                            }}
-                          >
-                            상세보기
-                          </button>
                           {activeTab === "sales" && (
                             <>
                               <button
@@ -714,26 +850,106 @@ export default function OrdersPage() {
                                   background: "#10b981",
                                   color: "#ffffff",
                                   border: "none",
-                                  borderRadius: "6px",
+                                  borderRadius: "4px",
                                   fontSize: "12px",
                                   cursor: "pointer",
+                                  whiteSpace: "nowrap",
                                 }}
                               >
                                 견적서
                               </button>
                               <button
-                                onClick={() => handleSendQuotationEmail(order)}
+                                onClick={() => handleCreateOrder(order)}
+                                style={{
+                                  padding: "6px 12px",
+                                  background: "#3b82f6",
+                                  color: "#ffffff",
+                                  border: "none",
+                                  borderRadius: "4px",
+                                  fontSize: "12px",
+                                  cursor: "pointer",
+                                  whiteSpace: "nowrap",
+                                }}
+                              >
+                                수주등록
+                              </button>
+                              <button
+                                onClick={() => handleCreateShipment(order)}
+                                style={{
+                                  padding: "6px 12px",
+                                  background: "#f59e0b",
+                                  color: "#ffffff",
+                                  border: "none",
+                                  borderRadius: "4px",
+                                  fontSize: "12px",
+                                  cursor: "pointer",
+                                  whiteSpace: "nowrap",
+                                }}
+                              >
+                                출고지시
+                              </button>
+                              <button
+                                onClick={() => handleProcessShipment(order)}
                                 style={{
                                   padding: "6px 12px",
                                   background: "#8b5cf6",
                                   color: "#ffffff",
                                   border: "none",
-                                  borderRadius: "6px",
+                                  borderRadius: "4px",
                                   fontSize: "12px",
                                   cursor: "pointer",
+                                  whiteSpace: "nowrap",
                                 }}
                               >
-                                견적서 보내기
+                                출고처리
+                              </button>
+                              <button
+                                onClick={() => handleIssueTaxInvoice(order)}
+                                style={{
+                                  padding: "6px 12px",
+                                  background: "#ef4444",
+                                  color: "#ffffff",
+                                  border: "none",
+                                  borderRadius: "4px",
+                                  fontSize: "12px",
+                                  cursor: "pointer",
+                                  whiteSpace: "nowrap",
+                                }}
+                              >
+                                세금계산서
+                              </button>
+                              <button
+                                onClick={() => handleRegisterPayment(order)}
+                                style={{
+                                  padding: "6px 12px",
+                                  background: "#06b6d4",
+                                  color: "#ffffff",
+                                  border: "none",
+                                  borderRadius: "4px",
+                                  fontSize: "12px",
+                                  cursor: "pointer",
+                                  whiteSpace: "nowrap",
+                                }}
+                              >
+                                수금등록
+                              </button>
+                              <button
+                                onClick={() => handleViewHistory(order)}
+                                style={{
+                                  padding: "6px 12px",
+                                  background: "#6b7280",
+                                  color: "#ffffff",
+                                  border: "none",
+                                  borderRadius: "6px",
+                                  fontSize: "12px",
+                                  fontWeight: "500",
+                                  cursor: "pointer",
+                                  whiteSpace: "nowrap",
+                                  boxShadow: "0 2px 4px rgba(0, 0, 0, 0.1)",
+                                  marginLeft: "45px",
+                                }}
+                              >
+                                📋 히스토리
                               </button>
                             </>
                           )}
@@ -778,6 +994,12 @@ export default function OrdersPage() {
           orderId={selectedOrder?.id}
           customerEmail={selectedOrder?.customerEmail}
           customerName={selectedOrder?.customerName}
+        />
+        <HistoryModal
+          isOpen={isHistoryModalOpen}
+          onClose={handleHistoryModalClose}
+          orderId={selectedOrder?.id}
+          orderNo={selectedOrder?.orderNo}
         />
       </div>
     </div>

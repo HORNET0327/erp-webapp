@@ -17,15 +17,15 @@ interface Customer {
 interface CustomerModalProps {
   isOpen: boolean;
   onClose: () => void;
-  customer: Customer | null;
+  editData: Customer | null;
   onSuccess: () => void;
-  type: "customer" | "vendor";
+  type: "customers" | "vendors";
 }
 
 export default function CustomerModal({
   isOpen,
   onClose,
-  customer,
+  editData,
   onSuccess,
   type,
 }: CustomerModalProps) {
@@ -42,16 +42,16 @@ export default function CustomerModal({
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    if (isOpen && customer) {
+    if (isOpen && editData) {
       setFormData({
-        code: customer.code || "",
-        name: customer.name || "",
-        contactPerson: customer.contactPerson || "",
-        email: customer.email || "",
-        phone: customer.phone || "",
-        address: customer.address || "",
-        notes: customer.notes || "",
-        isActive: customer.isActive,
+        code: editData.code || "",
+        name: editData.name || "",
+        contactPerson: editData.contactPerson || "",
+        email: editData.email || "",
+        phone: editData.phone || "",
+        address: editData.address || "",
+        notes: editData.notes || "",
+        isActive: editData.isActive,
       });
     } else if (isOpen) {
       setFormData({
@@ -65,7 +65,7 @@ export default function CustomerModal({
         isActive: true,
       });
     }
-  }, [isOpen, customer]);
+  }, [isOpen, editData]);
 
   const handleInputChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
@@ -83,9 +83,9 @@ export default function CustomerModal({
     setLoading(true);
 
     try {
-      const endpoint = type === "customer" ? "/api/customers" : "/api/vendors";
-      const url = customer ? `${endpoint}/${customer.id}` : endpoint;
-      const method = customer ? "PUT" : "POST";
+      const endpoint = type === "customers" ? "/api/customers" : "/api/vendors";
+      const url = editData ? `${endpoint}/${editData.id}` : endpoint;
+      const method = editData ? "PUT" : "POST";
 
       const response = await fetch(url, {
         method,
@@ -97,8 +97,8 @@ export default function CustomerModal({
       });
 
       if (response.ok) {
-        const action = customer ? "수정" : "생성";
-        const entityType = type === "customer" ? "고객" : "공급업체";
+        const action = editData ? "수정" : "생성";
+        const entityType = type === "customers" ? "고객" : "공급업체";
         alert(`${entityType}이 성공적으로 ${action}되었습니다.`);
         onSuccess();
         onClose();
@@ -116,8 +116,8 @@ export default function CustomerModal({
 
   if (!isOpen) return null;
 
-  const entityType = type === "customer" ? "고객" : "공급업체";
-  const action = customer ? "수정" : "추가";
+  const entityType = type === "customers" ? "고객" : "공급업체";
+  const action = editData ? "수정" : "추가";
 
   return (
     <div

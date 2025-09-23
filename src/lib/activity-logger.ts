@@ -132,4 +132,50 @@ export const ActivityLogger = {
       description: `견적서를 생성했습니다: ${customerName}`,
       metadata: { customerName },
     }),
+
+  // 주문 처리 관련
+  registerOrder: (orderId: string, orderNo: string) =>
+    logActivity({
+      action: "ORDER_REGISTER",
+      entityType: "SALES_ORDER",
+      entityId: orderId,
+      description: `수주등록을 완료했습니다: ${orderNo}`,
+      metadata: { orderNo },
+    }),
+
+  createShipment: (orderId: string, orderNo: string) =>
+    logActivity({
+      action: "SHIPMENT_CREATE",
+      entityType: "SALES_ORDER",
+      entityId: orderId,
+      description: `출고지시를 생성했습니다: ${orderNo}`,
+      metadata: { orderNo },
+    }),
+
+  processShipment: (orderId: string, orderNo: string) =>
+    logActivity({
+      action: "SHIPMENT_PROCESS",
+      entityType: "SALES_ORDER",
+      entityId: orderId,
+      description: `출고처리를 완료했습니다: ${orderNo}`,
+      metadata: { orderNo },
+    }),
+
+  issueTaxInvoice: (orderId: string, orderNo: string) =>
+    logActivity({
+      action: "TAX_INVOICE_ISSUE",
+      entityType: "SALES_ORDER",
+      entityId: orderId,
+      description: `세금계산서를 발행했습니다: ${orderNo}`,
+      metadata: { orderNo },
+    }),
+
+  registerPayment: (orderId: string, orderNo: string) =>
+    logActivity({
+      action: "PAYMENT_REGISTER",
+      entityType: "SALES_ORDER",
+      entityId: orderId,
+      description: `수금등록을 완료했습니다: ${orderNo}`,
+      metadata: { orderNo },
+    }),
 };

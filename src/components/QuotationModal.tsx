@@ -27,10 +27,18 @@ export default function QuotationModal({
   const [isEditingDelivery, setIsEditingDelivery] = useState(false);
   const [isEditingPayment, setIsEditingPayment] = useState(false);
   const [isEditingQuotationName, setIsEditingQuotationName] = useState(false);
+  const [paymentDeadline, setPaymentDeadline] = useState("발주후 14일 이내");
+  const [validityPeriod, setValidityPeriod] = useState("견적일로 부터 10일");
+  const [isEditingPaymentDeadline, setIsEditingPaymentDeadline] =
+    useState(false);
+  const [isEditingValidityPeriod, setIsEditingValidityPeriod] = useState(false);
   const [logoImage, setLogoImage] = useState<string | null>(
     "/images/sndlogo.png"
   );
   const [isEmailModalOpen, setIsEmailModalOpen] = useState(false);
+  const [quotationImageData, setQuotationImageData] = useState<string>("");
+  const [savedQuotation, setSavedQuotation] = useState<any>(null);
+  const [isSaving, setIsSaving] = useState(false);
   const pdfRef = useRef<HTMLDivElement>(null);
 
   // 현재 사용자 정보 가져오기
@@ -64,6 +72,7 @@ export default function QuotationModal({
     if (isOpen && order) {
       generateQuotation();
       fetchCurrentUser(); // 사용자 정보 가져오기
+      loadSavedQuotation(); // 저장된 견적서 로드
     } else if (!isOpen) {
       // 모달이 닫힐 때 입력값 초기화
       setAuthor("차장 김제면");
@@ -71,55 +80,172 @@ export default function QuotationModal({
       setDeliveryLocation("");
       setPaymentTerms("계약금 30%, 잔금 70%");
       setQuotationName("견적 요청");
+      setPaymentDeadline("발주후 14일 이내");
+      setValidityPeriod("견적일로 부터 10일");
       setIsEditingAuthor(false);
       setIsEditingDelivery(false);
       setIsEditingPayment(false);
       setIsEditingQuotationName(false);
+      setIsEditingPaymentDeadline(false);
+      setIsEditingValidityPeriod(false);
+      setSavedQuotation(null);
     }
   }, [isOpen, order]);
 
   // 숫자를 한자로 변환하는 함수
   const convertToChineseNumerals = (num: number): string => {
-    const digits = ["零", "一", "二", "三", "四", "五", "六", "七", "八", "九"];
-    const units = ["", "十", "百", "千", "万"];
+    // 입력값 검증
+    if (typeof num !== "number" || isNaN(num) || !isFinite(num)) {
+      return "零원整";
+    }
 
-    if (num === 0) return "零원整";
-    if (num < 0) return "零원整";
+    const digits = ["零", "一", "二", "三", "四", "五", "六", "七", "八", "九"];
+
+    // 정수로 변환 (소수점 제거)
+    const intNum = Math.floor(Math.abs(num));
+
+    if (intNum === 0) return "零원整";
+
+    // 만 단위로 나누어 처리
+    const man = Math.floor(intNum / 10000); // 만 단위
+    const remainder = intNum % 10000; // 나머지
 
     let result = "";
-    let unitIndex = 0;
-    let needZero = false;
-    let tempNum = num;
 
-    while (tempNum > 0) {
-      const digit = tempNum % 10;
+    // 만 단위 처리
+    if (man > 0) {
+      result += convertThousands(man) + "万";
+    }
 
-      if (digit !== 0) {
-        if (needZero && result !== "") {
-          result = "零" + result;
-        }
-        if (unitIndex === 0) {
-          result = digits[digit] + result;
-        } else {
-          result = digits[digit] + units[unitIndex] + result;
-        }
-        needZero = false;
-      } else if (unitIndex === 4) {
-        // 万 단위
-        if (needZero && result !== "") {
-          result = "零" + result;
-        }
-        result = units[unitIndex] + result;
-        needZero = false;
-      } else if (result !== "") {
-        needZero = true;
+    // 나머지 처리
+    if (remainder > 0) {
+      if (man > 0 && remainder < 1000) {
+        result += "零";
       }
-
-      tempNum = Math.floor(tempNum / 10);
-      unitIndex++;
+      result += convertThousands(remainder);
     }
 
     return result + "원整";
+
+    // 천 단위까지 변환하는 헬퍼 함수
+    function convertThousands(n: number): string {
+      if (n === 0) return "";
+
+      let result = "";
+      const thousands = Math.floor(n / 1000);
+      const hundreds = Math.floor((n % 1000) / 100);
+      const tens = Math.floor((n % 100) / 10);
+      const ones = n % 10;
+
+      if (thousands > 0) {
+        result += digits[thousands] + "千";
+      }
+      if (hundreds > 0) {
+        if (thousands > 0 && hundreds < 1) result += "零";
+        result += digits[hundreds] + "百";
+      } else if (thousands > 0 && (tens > 0 || ones > 0)) {
+        result += "零";
+      }
+      if (tens > 0) {
+        if ((thousands > 0 || hundreds > 0) && tens < 1) result += "零";
+        result += digits[tens] + "十";
+      } else if ((thousands > 0 || hundreds > 0) && ones > 0) {
+        result += "零";
+      }
+      if (ones > 0) {
+        result += digits[ones];
+      }
+
+      return result;
+    }
+  };
+
+  // 저장된 견적서 로드
+  const loadSavedQuotation = async () => {
+    if (!order) return;
+
+    try {
+      const response = await fetch(`/api/quotations?orderId=${order.id}`);
+      if (response.ok) {
+        const data = await response.json();
+        if (data.quotations && data.quotations.length > 0) {
+          const latestQuotation = data.quotations[0]; // 가장 최신 견적서
+          setSavedQuotation(latestQuotation);
+
+          // 저장된 값으로 폼 업데이트
+          if (latestQuotation.quotationName)
+            setQuotationName(latestQuotation.quotationName);
+          if (latestQuotation.paymentDeadline)
+            setPaymentDeadline(latestQuotation.paymentDeadline);
+          if (latestQuotation.validityPeriod)
+            setValidityPeriod(latestQuotation.validityPeriod);
+          if (latestQuotation.deliveryLocation)
+            setDeliveryLocation(latestQuotation.deliveryLocation);
+          if (latestQuotation.paymentTerms)
+            setPaymentTerms(latestQuotation.paymentTerms);
+          if (latestQuotation.author) setAuthor(latestQuotation.author);
+          if (latestQuotation.remarks) setRemarks(latestQuotation.remarks);
+        }
+      }
+    } catch (error) {
+      console.error("저장된 견적서 로드 실패:", error);
+    }
+  };
+
+  // 견적서 저장
+  const handleSaveQuotation = async () => {
+    if (!quotationData || !order) return;
+
+    setIsSaving(true);
+    try {
+      const payload = {
+        orderId: order.id,
+        quotationName,
+        paymentDeadline,
+        validityPeriod,
+        deliveryLocation,
+        paymentTerms,
+        author,
+        remarks,
+        subtotal: quotationData.subtotal,
+        taxRate: quotationData.taxRate || 10,
+      };
+
+      let response;
+      if (savedQuotation) {
+        // 기존 견적서 수정
+        response = await fetch(`/api/quotations/${savedQuotation.id}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+      } else {
+        // 새 견적서 생성
+        response = await fetch("/api/quotations", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+      }
+
+      if (response.ok) {
+        const data = await response.json();
+        setSavedQuotation(data.quotation);
+        alert(
+          savedQuotation
+            ? "견적서가 수정되었습니다."
+            : "견적서가 저장되었습니다."
+        );
+      } else {
+        const error = await response.json();
+        alert("견적서 저장 실패: " + (error.error || "알 수 없는 오류"));
+      }
+    } catch (error) {
+      console.error("견적서 저장 오류:", error);
+      alert("견적서 저장 중 오류가 발생했습니다.");
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const generateQuotation = async () => {
@@ -140,13 +266,13 @@ export default function QuotationModal({
       const detailedOrder = data.order;
 
       console.log("Detailed order data:", detailedOrder);
+      console.log("Customer data:", detailedOrder.customer);
+      console.log("Customer email:", detailedOrder.customer?.email);
 
       // 견적서 데이터 생성
-      const subtotal = detailedOrder.totalAmount || 0;
+      const subtotal = Number(detailedOrder.totalAmount) || 0;
       const quotation = {
-        quotationNo: `20250919-${String(
-          Math.floor(Math.random() * 9999) + 1
-        ).padStart(4, "0")}`,
+        quotationNo: `Q${detailedOrder.orderNo}`,
         orderNo: detailedOrder.orderNo,
         customer: detailedOrder.customer,
         orderDate: detailedOrder.orderDate,
@@ -311,6 +437,33 @@ export default function QuotationModal({
     }
   };
 
+  const handleSendQuotation = async () => {
+    if (!pdfRef.current || !quotationData || !order) return;
+
+    try {
+      setLoading(true);
+
+      // HTML을 캔버스로 변환 (PDF 다운로드와 동일한 방식)
+      const canvas = await html2canvas(pdfRef.current, {
+        scale: 2, // 고해상도
+        useCORS: true,
+        allowTaint: true,
+        backgroundColor: "#ffffff",
+      });
+
+      const imageData = canvas.toDataURL("image/png");
+
+      // 이메일 모달 열기 (이미지 데이터와 함께)
+      setIsEmailModalOpen(true);
+      setQuotationImageData(imageData);
+    } catch (error) {
+      console.error("견적서 이미지 생성 중 오류:", error);
+      alert("견적서 이미지 생성 중 오류가 발생했습니다.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   if (!isOpen || !order) return null;
 
   return (
@@ -366,6 +519,27 @@ export default function QuotationModal({
           </h2>
           <div style={{ display: "flex", gap: "8px" }}>
             <button
+              onClick={handleSaveQuotation}
+              disabled={isSaving || loading}
+              style={{
+                padding: "8px 16px",
+                background: isSaving || loading ? "#6b7280" : "#f59e0b",
+                color: "#ffffff",
+                border: "none",
+                borderRadius: "6px",
+                fontSize: "14px",
+                fontWeight: "500",
+                cursor: isSaving || loading ? "not-allowed" : "pointer",
+                opacity: isSaving || loading ? 0.7 : 1,
+              }}
+            >
+              {isSaving
+                ? "저장 중..."
+                : savedQuotation
+                ? "수정 저장"
+                : "견적서 저장"}
+            </button>
+            <button
               onClick={handlePrint}
               style={{
                 padding: "8px 16px",
@@ -381,11 +555,11 @@ export default function QuotationModal({
               인쇄
             </button>
             <button
-              onClick={() => setIsEmailModalOpen(true)}
+              onClick={handleSendQuotation}
               disabled={loading}
               style={{
                 padding: "8px 16px",
-                background: loading ? "#6b7280" : "#10b981",
+                background: loading ? "#6b7280" : "#8b5cf6",
                 color: "#ffffff",
                 border: "none",
                 borderRadius: "6px",
@@ -467,7 +641,7 @@ export default function QuotationModal({
 
               {/* 오른쪽 상단 - 견적번호 */}
               <div style={{ fontSize: "11px", color: "#000000" }}>
-                No: {quotationData.quotationNo}
+                No: {savedQuotation?.quotationNo || quotationData.quotationNo}
               </div>
             </div>
 
@@ -567,10 +741,74 @@ export default function QuotationModal({
                     )}
                   </div>
                   <div style={{ marginBottom: "4px" }}>
-                    납입기한 : 발주후 14일 이내
+                    납입기한 :
+                    {isEditingPaymentDeadline ? (
+                      <input
+                        type="text"
+                        value={paymentDeadline}
+                        onChange={(e) => setPaymentDeadline(e.target.value)}
+                        onBlur={() => setIsEditingPaymentDeadline(false)}
+                        onKeyPress={(e) => {
+                          if (e.key === "Enter") {
+                            setIsEditingPaymentDeadline(false);
+                          }
+                        }}
+                        autoFocus
+                        style={{
+                          border: "1px solid #ccc",
+                          padding: "2px 4px",
+                          fontSize: "12px",
+                          width: "120px",
+                          marginLeft: "4px",
+                        }}
+                      />
+                    ) : (
+                      <span
+                        onClick={() => setIsEditingPaymentDeadline(true)}
+                        style={{
+                          marginLeft: "4px",
+                          cursor: "pointer",
+                          color: "#000000",
+                        }}
+                      >
+                        {paymentDeadline}
+                      </span>
+                    )}
                   </div>
                   <div style={{ marginBottom: "4px" }}>
-                    유효기간 : 견적일로 부터 10일
+                    유효기간 :
+                    {isEditingValidityPeriod ? (
+                      <input
+                        type="text"
+                        value={validityPeriod}
+                        onChange={(e) => setValidityPeriod(e.target.value)}
+                        onBlur={() => setIsEditingValidityPeriod(false)}
+                        onKeyPress={(e) => {
+                          if (e.key === "Enter") {
+                            setIsEditingValidityPeriod(false);
+                          }
+                        }}
+                        autoFocus
+                        style={{
+                          border: "1px solid #ccc",
+                          padding: "2px 4px",
+                          fontSize: "12px",
+                          width: "120px",
+                          marginLeft: "4px",
+                        }}
+                      />
+                    ) : (
+                      <span
+                        onClick={() => setIsEditingValidityPeriod(true)}
+                        style={{
+                          marginLeft: "4px",
+                          cursor: "pointer",
+                          color: "#000000",
+                        }}
+                      >
+                        {validityPeriod}
+                      </span>
+                    )}
                   </div>
                   <div style={{ marginBottom: "4px" }}>
                     인도장소:
@@ -654,7 +892,7 @@ export default function QuotationModal({
                   }}
                 >
                   <div style={{ marginBottom: "4px" }}>
-                    합계{quotationData.subtotalChinese}
+                    합계 {quotationData.subtotalChinese}
                   </div>
                   <div style={{ marginBottom: "4px" }}>
                     (₩{quotationData.subtotal.toLocaleString()})
@@ -1133,9 +1371,7 @@ export default function QuotationModal({
                         textAlign: "center",
                         fontWeight: "bold",
                       }}
-                    >
-                      ******** 이 하 여 백 *******
-                    </td>
+                    ></td>
                     <td
                       style={{
                         border: "1px solid #000000",
@@ -1305,11 +1541,15 @@ export default function QuotationModal({
 
       <EmailModal
         isOpen={isEmailModalOpen}
-        onClose={() => setIsEmailModalOpen(false)}
+        onClose={() => {
+          setIsEmailModalOpen(false);
+          setQuotationImageData("");
+        }}
         type="quotation"
         orderId={order?.id}
-        customerEmail={order?.customer?.email}
+        customerEmail={quotationData?.customer?.email}
         customerName={order?.customer?.name}
+        quotationImageData={quotationImageData}
       />
     </div>
   );
