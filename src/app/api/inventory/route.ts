@@ -147,7 +147,13 @@ export async function GET(request: NextRequest) {
         const avgPurchasePrice_value = Number(
           avgPurchasePrice._avg.unitCost || 0
         );
-        const basePrice = Number(item.basePrice || 0);
+        let basePrice = Number(item.basePrice || 0);
+
+        // 기본 판매단가가 0원이고 최근 구매단가가 있으면 10% 마진을 적용
+        if (basePrice === 0 && lastCost > 0) {
+          basePrice = Math.round(lastCost * 1.1); // 10% 마진
+        }
+
         const stockValue = currentStock * lastCost;
 
         return {

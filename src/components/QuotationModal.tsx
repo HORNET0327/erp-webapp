@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import jsPDF from "jspdf";
 import html2canvas from "html2canvas";
+import EmailModal from "./EmailModal";
 
 interface QuotationModalProps {
   isOpen: boolean;
@@ -29,6 +30,7 @@ export default function QuotationModal({
   const [logoImage, setLogoImage] = useState<string | null>(
     "/images/sndlogo.png"
   );
+  const [isEmailModalOpen, setIsEmailModalOpen] = useState(false);
   const pdfRef = useRef<HTMLDivElement>(null);
 
   // 현재 사용자 정보 가져오기
@@ -178,14 +180,85 @@ export default function QuotationModal({
       }
     } catch (error) {
       console.error("Error generating quotation:", error);
-      alert("견적서 생성 중 오류가 발생했습니다: " + error.message);
+      const errorMessage =
+        error instanceof Error
+          ? error.message
+          : "알 수 없는 오류가 발생했습니다.";
+      alert("견적서 생성 중 오류가 발생했습니다: " + errorMessage);
     } finally {
       setLoading(false);
     }
   };
 
   const handlePrint = () => {
-    window.print();
+    // 인쇄 시 견적서 영역만 표시되도록 설정
+    const printWindow = window.open("", "_blank");
+    if (printWindow && pdfRef.current) {
+      const printContent = pdfRef.current.innerHTML;
+      printWindow.document.write(`
+        <!DOCTYPE html>
+        <html>
+          <head>
+            <title>견적서</title>
+            <style>
+              @page {
+                size: A4;
+                margin: 0;
+              }
+              * {
+                margin: 0;
+                padding: 0;
+                box-sizing: border-box;
+              }
+              body {
+                font-family: Arial, sans-serif;
+                background: white;
+                color: #000000;
+              }
+              .quotation-content {
+                width: 210mm;
+                min-height: 297mm;
+                background: #ffffff;
+                padding: 20mm;
+                font-size: 12px;
+                line-height: 1.4;
+                margin: 0 auto;
+                position: relative;
+              }
+              @media print {
+                body {
+                  margin: 0;
+                  padding: 0;
+                }
+                .quotation-content {
+                  position: absolute;
+                  left: 0;
+                  top: 0;
+                  width: 100%;
+                  margin: 0;
+                  padding: 20mm;
+                }
+              }
+            </style>
+          </head>
+          <body>
+            <div class="quotation-content">
+              ${printContent}
+            </div>
+          </body>
+        </html>
+      `);
+      printWindow.document.close();
+      printWindow.focus();
+      // 약간의 지연 후 인쇄 (렌더링 완료 대기)
+      setTimeout(() => {
+        printWindow.print();
+        printWindow.close();
+      }, 100);
+    } else {
+      // 폴백: 기본 인쇄
+      window.print();
+    }
   };
 
   const handleDownloadPDF = async () => {
@@ -254,7 +327,7 @@ export default function QuotationModal({
         justifyContent: "center",
         zIndex: 1000,
       }}
-      onClick={onClose}
+      onClick={isEmailModalOpen ? undefined : onClose}
     >
       <div
         style={{
@@ -308,6 +381,23 @@ export default function QuotationModal({
               인쇄
             </button>
             <button
+              onClick={() => setIsEmailModalOpen(true)}
+              disabled={loading}
+              style={{
+                padding: "8px 16px",
+                background: loading ? "#6b7280" : "#10b981",
+                color: "#ffffff",
+                border: "none",
+                borderRadius: "6px",
+                fontSize: "14px",
+                fontWeight: "500",
+                cursor: loading ? "not-allowed" : "pointer",
+                opacity: loading ? 0.7 : 1,
+              }}
+            >
+              견적서 보내기
+            </button>
+            <button
               onClick={handleDownloadPDF}
               disabled={loading}
               style={{
@@ -349,6 +439,7 @@ export default function QuotationModal({
         ) : quotationData ? (
           <div
             ref={pdfRef}
+            className="quotation-content"
             style={{
               width: "210mm",
               minHeight: "297mm",
@@ -1211,6 +1302,15 @@ export default function QuotationModal({
           </button>
         </div>
       </div>
+
+      <EmailModal
+        isOpen={isEmailModalOpen}
+        onClose={() => setIsEmailModalOpen(false)}
+        type="quotation"
+        orderId={order?.id}
+        customerEmail={order?.customer?.email}
+        customerName={order?.customer?.name}
+      />
     </div>
   );
 }

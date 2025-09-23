@@ -71,6 +71,14 @@ model UserInfo {
   mobile         String?
   email          String?
 
+  // 이메일 설정
+  smtpHost       String?
+  smtpPort       String?
+  smtpSecure     String?
+  smtpUser       String?
+  smtpPass       String?
+  smtpFromName   String?
+
   addressLine1   String?
   addressLine2   String?
   city           String?

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSessionUser } from "@/lib/auth";
 import { PrismaClient } from "@prisma/client";
+import { isLeadUserOrAbove } from "@/lib/permissions";
 
 const prisma = new PrismaClient();
 
@@ -14,6 +15,21 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const type = searchParams.get("type") || "sales";
 
+    // Get user roles to check permissions
+    const userWithRoles = await prisma.user.findUnique({
+      where: { id: sessionUser.id },
+      include: {
+        userRoles: {
+          include: {
+            role: true,
+          },
+        },
+      },
+    });
+
+    const userRoles = userWithRoles?.userRoles.map((ur) => ur.role.name) || [];
+    const canViewAllStats = isLeadUserOrAbove(userRoles);
+
     const now = new Date();
     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
     const startOfYear = new Date(now.getFullYear(), 0, 1);
@@ -22,11 +38,13 @@ export async function GET(request: NextRequest) {
 
     if (type === "sales") {
       whereClause = {
-        salespersonId: sessionUser.id,
+        // LEAD_USER 이상이면 모든 통계, 아니면 자신의 통계만
+        ...(canViewAllStats ? {} : { salespersonId: sessionUser.id }),
       };
     } else {
       whereClause = {
-        buyerId: sessionUser.id,
+        // LEAD_USER 이상이면 모든 통계, 아니면 자신의 통계만
+        ...(canViewAllStats ? {} : { buyerId: sessionUser.id }),
       };
     }
 
@@ -104,7 +122,3 @@ export async function GET(request: NextRequest) {
     await prisma.$disconnect();
   }
 }
-
-
-
-

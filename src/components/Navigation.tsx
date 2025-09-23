@@ -2,7 +2,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState, useEffect } from "react";
-import ChangePasswordModal from "./ChangePasswordModal";
+import UserProfileModal from "./ChangePasswordModal";
 import { isAdmin, isLeadUserOrAbove } from "@/lib/permissions";
 
 interface NavigationProps {
@@ -13,8 +13,7 @@ export default function Navigation({ currentUser }: NavigationProps) {
   const pathname = usePathname();
   const [userRoles, setUserRoles] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
-  const [isChangePasswordModalOpen, setIsChangePasswordModalOpen] =
-    useState(false);
+  const [isUserProfileModalOpen, setIsUserProfileModalOpen] = useState(false);
 
   useEffect(() => {
     fetchUserRoles();
@@ -52,8 +51,8 @@ export default function Navigation({ currentUser }: NavigationProps) {
     { href: "/reports", label: "보고서", icon: "📈" },
   ];
 
-  // Add users menu for Lead User and Admin
-  if (isLeadUserOrAbove(userRoles)) {
+  // Add users menu for Admin only
+  if (isAdmin(userRoles)) {
     menuItems.push({ href: "/users", label: "사용자관리", icon: "👤" });
   }
 
@@ -120,7 +119,7 @@ export default function Navigation({ currentUser }: NavigationProps) {
               {currentUser}
             </span>
             <button
-              onClick={() => setIsChangePasswordModalOpen(true)}
+              onClick={() => setIsUserProfileModalOpen(true)}
               style={{
                 padding: "6px 12px",
                 backgroundColor: "#f3f4f6",
@@ -165,9 +164,9 @@ export default function Navigation({ currentUser }: NavigationProps) {
         </button>
       </div>
 
-      <ChangePasswordModal
-        isOpen={isChangePasswordModalOpen}
-        onClose={() => setIsChangePasswordModalOpen(false)}
+      <UserProfileModal
+        isOpen={isUserProfileModalOpen}
+        onClose={() => setIsUserProfileModalOpen(false)}
         username={currentUser || ""}
       />
     </nav>

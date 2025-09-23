@@ -57,7 +57,7 @@ export default function UsersPage() {
     hireDate: "",
     birthDate: "",
     gender: "",
-    roleIds: [] as string[],
+    roleId: "",
   });
 
   useEffect(() => {
@@ -136,7 +136,7 @@ export default function UsersPage() {
       hireDate: user.userInfo?.hireDate?.split("T")[0] || "",
       birthDate: user.userInfo?.birthDate?.split("T")[0] || "",
       gender: user.userInfo?.gender || "",
-      roleIds: user.userRoles.map((ur) => ur.role.id),
+      roleId: user.userRoles.length > 0 ? user.userRoles[0].role.id : "",
     });
     setShowModal(true);
   };
@@ -169,15 +169,6 @@ export default function UsersPage() {
     setFormData((prev) => ({
       ...prev,
       [name]: value,
-    }));
-  };
-
-  const handleRoleChange = (roleId: string, checked: boolean) => {
-    setFormData((prev) => ({
-      ...prev,
-      roleIds: checked
-        ? [...prev.roleIds, roleId]
-        : prev.roleIds.filter((id) => id !== roleId),
     }));
   };
 
@@ -216,7 +207,7 @@ export default function UsersPage() {
           hireDate: "",
           birthDate: "",
           gender: "",
-          roleIds: [],
+          roleId: "",
         });
         fetchUsers();
       } else {
@@ -281,7 +272,7 @@ export default function UsersPage() {
                   hireDate: "",
                   birthDate: "",
                   gender: "",
-                  roleIds: [],
+                  roleId: "",
                 });
                 setShowModal(true);
               }}
@@ -833,28 +824,45 @@ export default function UsersPage() {
                     marginBottom: "8px",
                   }}
                 >
-                  권한
+                  권한 *
                 </label>
-                <div style={{ display: "flex", flexWrap: "wrap", gap: "8px" }}>
+                <div
+                  style={{
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: "8px",
+                  }}
+                >
                   {roles.map((role) => (
                     <label
                       key={role.id}
                       style={{
                         display: "flex",
                         alignItems: "center",
-                        gap: "4px",
+                        gap: "8px",
                         cursor: "pointer",
+                        padding: "8px 12px",
+                        border: "1px solid #d1d5db",
+                        borderRadius: "6px",
+                        backgroundColor:
+                          formData.roleId === role.id ? "#dbeafe" : "#ffffff",
                       }}
                     >
                       <input
-                        type="checkbox"
-                        checked={formData.roleIds.includes(role.id)}
-                        onChange={(e) =>
-                          handleRoleChange(role.id, e.target.checked)
-                        }
-                        style={{ marginRight: "4px" }}
+                        type="radio"
+                        name="roleId"
+                        value={role.id}
+                        checked={formData.roleId === role.id}
+                        onChange={handleInputChange}
+                        style={{ margin: 0 }}
                       />
-                      <span style={{ fontSize: "14px", color: "#000000" }}>
+                      <span
+                        style={{
+                          fontSize: "14px",
+                          color: "#000000",
+                          fontWeight: "500",
+                        }}
+                      >
                         {role.name}
                       </span>
                     </label>

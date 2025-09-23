@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSessionUser } from "@/lib/auth";
 import { PrismaClient } from "@prisma/client";
+import { isLeadUserOrAbove } from "@/lib/permissions";
 
 const prisma = new PrismaClient();
 
@@ -16,11 +17,27 @@ export async function GET(request: NextRequest) {
     const status = searchParams.get("status");
     const search = searchParams.get("search");
 
+    // Get user roles to check permissions
+    const userWithRoles = await prisma.user.findUnique({
+      where: { id: sessionUser.id },
+      include: {
+        userRoles: {
+          include: {
+            role: true,
+          },
+        },
+      },
+    });
+
+    const userRoles = userWithRoles?.userRoles.map((ur) => ur.role.name) || [];
+    const canViewAllOrders = isLeadUserOrAbove(userRoles);
+
     let whereClause: any = {};
 
     if (type === "sales") {
       whereClause = {
-        salespersonId: sessionUser.id,
+        // LEAD_USER 이상이면 모든 주문, 아니면 자신의 주문만
+        ...(canViewAllOrders ? {} : { salespersonId: sessionUser.id }),
         ...(status && status !== "all" ? { status } : {}),
         ...(search
           ? {
@@ -35,7 +52,8 @@ export async function GET(request: NextRequest) {
       };
     } else {
       whereClause = {
-        buyerId: sessionUser.id,
+        // LEAD_USER 이상이면 모든 주문, 아니면 자신의 주문만
+        ...(canViewAllOrders ? {} : { buyerId: sessionUser.id }),
         ...(status && status !== "all" ? { status } : {}),
         ...(search
           ? {
@@ -53,7 +71,7 @@ export async function GET(request: NextRequest) {
       orders = await prisma.salesOrder.findMany({
         where: whereClause,
         include: {
-          customer: { select: { name: true } },
+          customer: { select: { name: true, email: true } },
           salesperson: { select: { username: true } },
         },
         orderBy: { createdAt: "desc" },
@@ -76,6 +94,7 @@ export async function GET(request: NextRequest) {
       id: order.id,
       orderNo: order.orderNo || order.poNo,
       customerName: order.customer?.name,
+      customerEmail: order.customer?.email,
       vendorName: order.vendor?.name,
       orderDate: order.orderDate || order.poDate,
       status: order.status,

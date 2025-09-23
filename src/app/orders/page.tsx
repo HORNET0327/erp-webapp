@@ -5,11 +5,13 @@ import Navigation from "@/components/Navigation";
 import OrderModal from "@/components/OrderModal";
 import OrderDetailModal from "@/components/OrderDetailModal";
 import QuotationModal from "@/components/QuotationModal";
+import EmailModal from "@/components/EmailModal";
 
 interface Order {
   id: string;
   orderNo: string;
   customerName?: string;
+  customerEmail?: string;
   vendorName?: string;
   orderDate: string;
   status: string;
@@ -151,6 +153,7 @@ export default function OrdersPage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
   const [isQuotationModalOpen, setIsQuotationModalOpen] = useState(false);
+  const [isEmailModalOpen, setIsEmailModalOpen] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState<any>(null);
 
   useEffect(() => {
@@ -253,6 +256,16 @@ export default function OrdersPage() {
 
   const handleQuotationModalClose = () => {
     setIsQuotationModalOpen(false);
+    setSelectedOrder(null);
+  };
+
+  const handleSendQuotationEmail = (order: any) => {
+    setSelectedOrder(order);
+    setIsEmailModalOpen(true);
+  };
+
+  const handleEmailModalClose = () => {
+    setIsEmailModalOpen(false);
     setSelectedOrder(null);
   };
 
@@ -693,20 +706,36 @@ export default function OrdersPage() {
                             상세보기
                           </button>
                           {activeTab === "sales" && (
-                            <button
-                              onClick={() => handleCreateQuotation(order)}
-                              style={{
-                                padding: "6px 12px",
-                                background: "#10b981",
-                                color: "#ffffff",
-                                border: "none",
-                                borderRadius: "6px",
-                                fontSize: "12px",
-                                cursor: "pointer",
-                              }}
-                            >
-                              견적서
-                            </button>
+                            <>
+                              <button
+                                onClick={() => handleCreateQuotation(order)}
+                                style={{
+                                  padding: "6px 12px",
+                                  background: "#10b981",
+                                  color: "#ffffff",
+                                  border: "none",
+                                  borderRadius: "6px",
+                                  fontSize: "12px",
+                                  cursor: "pointer",
+                                }}
+                              >
+                                견적서
+                              </button>
+                              <button
+                                onClick={() => handleSendQuotationEmail(order)}
+                                style={{
+                                  padding: "6px 12px",
+                                  background: "#8b5cf6",
+                                  color: "#ffffff",
+                                  border: "none",
+                                  borderRadius: "6px",
+                                  fontSize: "12px",
+                                  cursor: "pointer",
+                                }}
+                              >
+                                견적서 보내기
+                              </button>
+                            </>
                           )}
                         </div>
                       </td>
@@ -739,6 +768,16 @@ export default function OrdersPage() {
           isOpen={isQuotationModalOpen}
           onClose={handleQuotationModalClose}
           order={selectedOrder}
+        />
+
+        {/* Email Modal */}
+        <EmailModal
+          isOpen={isEmailModalOpen}
+          onClose={handleEmailModalClose}
+          type="quotation"
+          orderId={selectedOrder?.id}
+          customerEmail={selectedOrder?.customerEmail}
+          customerName={selectedOrder?.customerName}
         />
       </div>
     </div>

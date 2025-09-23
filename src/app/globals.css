@@ -25,6 +25,44 @@ body {
   font-family: Arial, Helvetica, sans-serif;
 }
 
+/* 견적서 인쇄 스타일 */
+@media print {
+  body * {
+    visibility: hidden;
+  }
+
+  .quotation-content,
+  .quotation-content * {
+    visibility: visible;
+  }
+
+  .quotation-content {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100% !important;
+    margin: 0 !important;
+    padding: 20mm !important;
+    box-shadow: none !important;
+    background: white !important;
+  }
+
+  /* 인쇄 시 불필요한 요소 숨기기 */
+  .quotation-content button,
+  .quotation-content input[type="text"],
+  .quotation-content textarea {
+    border: none !important;
+    background: transparent !important;
+    outline: none !important;
+    cursor: default !important;
+  }
+
+  .quotation-content input[type="text"]:focus,
+  .quotation-content textarea:focus {
+    border: 1px solid #ccc !important;
+  }
+}
+
 /* Placeholder 텍스트는 회색으로 표시 */
 input::placeholder,
 textarea::placeholder {

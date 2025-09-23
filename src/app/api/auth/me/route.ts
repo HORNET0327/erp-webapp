@@ -9,7 +9,7 @@ export async function GET() {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    // Get user with roles
+    // Get user with roles and userInfo
     const userWithRoles = await prisma.user.findUnique({
       where: { id: user.id },
       include: {
@@ -18,6 +18,7 @@ export async function GET() {
             role: true,
           },
         },
+        userInfo: true,
       },
     });
 
@@ -31,6 +32,7 @@ export async function GET() {
         username: userWithRoles.username,
         name: userWithRoles.username, // username을 name으로도 사용
         email: userWithRoles.email,
+        phone: userWithRoles.userInfo?.phone || "",
         roles: userWithRoles.userRoles.map((ur) => ur.role),
       },
     });

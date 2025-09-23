@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getSessionUser } from "@/lib/auth";
+import { isLeadUserOrAbove } from "@/lib/permissions";
 
 export async function GET(request: NextRequest) {
   try {
@@ -16,6 +17,21 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    // Get user roles to check permissions
+    const userWithRoles = await prisma.user.findUnique({
+      where: { id: user.id },
+      include: {
+        userRoles: {
+          include: {
+            role: true,
+          },
+        },
+      },
+    });
+
+    const userRoles = userWithRoles?.userRoles.map((ur) => ur.role.name) || [];
+    const canViewAllStats = isLeadUserOrAbove(userRoles);
+
     const currentDate = new Date();
     const startOfMonth = new Date(
       currentDate.getFullYear(),
@@ -24,7 +40,7 @@ export async function GET(request: NextRequest) {
     );
     const startOfYear = new Date(currentDate.getFullYear(), 0, 1);
 
-    // Get user's sales orders (as salesperson)
+    // Get sales orders (all if LEAD_USER+, own if regular user)
     const [
       monthlySalesOrders,
       yearlySalesOrders,
@@ -34,7 +50,7 @@ export async function GET(request: NextRequest) {
       // Monthly sales orders
       prisma.salesOrder.findMany({
         where: {
-          salespersonId: user.id,
+          ...(canViewAllStats ? {} : { salespersonId: user.id }),
           orderDate: {
             gte: startOfMonth,
             lte: currentDate,
@@ -47,7 +63,7 @@ export async function GET(request: NextRequest) {
       // Yearly sales orders
       prisma.salesOrder.findMany({
         where: {
-          salespersonId: user.id,
+          ...(canViewAllStats ? {} : { salespersonId: user.id }),
           orderDate: {
             gte: startOfYear,
             lte: currentDate,
@@ -60,7 +76,7 @@ export async function GET(request: NextRequest) {
       // Monthly purchase orders
       prisma.purchaseOrder.findMany({
         where: {
-          buyerId: user.id,
+          ...(canViewAllStats ? {} : { buyerId: user.id }),
           orderDate: {
             gte: startOfMonth,
             lte: currentDate,
@@ -73,7 +89,7 @@ export async function GET(request: NextRequest) {
       // Yearly purchase orders
       prisma.purchaseOrder.findMany({
         where: {
-          buyerId: user.id,
+          ...(canViewAllStats ? {} : { buyerId: user.id }),
           orderDate: {
             gte: startOfYear,
             lte: currentDate,

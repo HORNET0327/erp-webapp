@@ -1,24 +1,64 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# ERP 웹 애플리케이션
 
-## Getting Started
+센서/케이블 유통업체용 ERP 시스템 (P&F, WAGO, MURR)
 
-First, run the development server:
+## 주요 기능
+
+- **사용자 관리**: 역할 기반 권한 관리 (ADMIN, LEAD USER, USER)
+- **재고 관리**: 제품, 브랜드, 카테고리, 재고 트랜잭션 관리
+- **거래처 관리**: 고객, 공급업체 정보 관리
+- **주문 관리**: 판매 주문, 구매 주문 관리
+- **견적서 관리**: 견적서 생성, 인쇄, PDF 다운로드
+- **이메일 발송**: 견적서, 주문서, 알림 이메일 발송
+- **보고서**: 다양한 보고서 생성
+
+## 기술 스택
+
+- **Frontend**: Next.js 15, React 19, TypeScript, Tailwind CSS
+- **Backend**: Next.js API Routes
+- **Database**: SQL Server (Prisma ORM)
+- **Email**: Nodemailer
+
+## 환경 설정
+
+### 1. 데이터베이스 설정
 
 ```bash
+# .env 파일에 데이터베이스 연결 문자열 추가
+DATABASE_URL="your_database_connection_string"
+```
+
+### 2. 이메일 설정 (선택사항)
+
+```bash
+# .env 파일에 이메일 설정 추가
+SMTP_HOST="smtp.gmail.com"
+SMTP_PORT="587"
+SMTP_SECURE="false"
+SMTP_USER="your_email@gmail.com"
+SMTP_PASS="your_app_password"
+SMTP_FROM_NAME="ERP 시스템"
+```
+
+### 3. 데이터베이스 마이그레이션
+
+```bash
+npm run prisma:migrate
+npm run prisma:generate
+npm run seed
+```
+
+## 시작하기
+
+```bash
+# 의존성 설치
+npm install
+
+# 개발 서버 실행
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
 Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
-
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
-
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
 
 ## Learn More
 

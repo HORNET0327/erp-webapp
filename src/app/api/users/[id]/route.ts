@@ -47,7 +47,7 @@ export async function PUT(
       hireDate,
       birthDate,
       gender,
-      roleIds,
+      roleId,
     } = body;
 
     const updateData: any = {
@@ -97,25 +97,21 @@ export async function PUT(
       },
     });
 
-    // Update roles
-    if (roleIds) {
+    // Update role
+    if (roleId !== undefined) {
       // Remove existing roles
       await prisma.userRole.deleteMany({
         where: { userId: params.id },
       });
 
-      // Add new roles
-      if (roleIds.length > 0) {
-        await Promise.all(
-          roleIds.map((roleId: string) =>
-            prisma.userRole.create({
-              data: {
-                userId: params.id,
-                roleId,
-              },
-            })
-          )
-        );
+      // Add new role
+      if (roleId) {
+        await prisma.userRole.create({
+          data: {
+            userId: params.id,
+            roleId,
+          },
+        });
       }
     }
 

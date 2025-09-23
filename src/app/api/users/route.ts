@@ -95,7 +95,7 @@ export async function POST(request: NextRequest) {
       hireDate,
       birthDate,
       gender,
-      roleIds,
+      roleId,
     } = body;
 
     // Hash password
@@ -126,18 +126,14 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    // Assign roles
-    if (roleIds && roleIds.length > 0) {
-      await Promise.all(
-        roleIds.map((roleId: string) =>
-          prisma.userRole.create({
-            data: {
-              userId: newUser.id,
-              roleId,
-            },
-          })
-        )
-      );
+    // Assign role
+    if (roleId) {
+      await prisma.userRole.create({
+        data: {
+          userId: newUser.id,
+          roleId,
+        },
+      });
     }
 
     // Fetch created user with roles
