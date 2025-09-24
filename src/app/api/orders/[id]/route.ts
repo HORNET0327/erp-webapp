@@ -36,7 +36,64 @@ export async function GET(
     });
 
     if (salesOrder) {
-      return NextResponse.json({ success: true, order: salesOrder });
+      // totalAmount를 안전하게 숫자로 변환
+      let correctedTotalAmount = Number(salesOrder.totalAmount);
+
+      // totalAmount가 비정상적으로 큰 값이면 주문 항목의 합계로 재계산
+      if (correctedTotalAmount > 1000000000 || isNaN(correctedTotalAmount)) {
+        console.warn("Abnormal totalAmount detected, recalculating:", {
+          orderNo: salesOrder.orderNo,
+          originalTotalAmount: salesOrder.totalAmount,
+          convertedTotalAmount: correctedTotalAmount,
+          lines: salesOrder.lines?.map((line: any) => ({
+            qty: Number(line.qty) || 0,
+            unitPrice: Number(line.unitPrice) || 0,
+            amount: Number(line.amount) || 0,
+          })),
+        });
+
+        correctedTotalAmount =
+          salesOrder.lines?.reduce(
+            (sum: number, line: any) => sum + (Number(line.amount) || 0),
+            0
+          ) || 0;
+
+        // 데이터베이스의 totalAmount도 수정
+        await prisma.salesOrder.update({
+          where: { id: orderId },
+          data: { totalAmount: correctedTotalAmount },
+        });
+
+        console.log("Corrected totalAmount:", correctedTotalAmount);
+      }
+
+      console.log("Sales order details:", {
+        id: salesOrder.id,
+        orderNo: salesOrder.orderNo,
+        originalTotalAmount: salesOrder.totalAmount,
+        correctedTotalAmount: correctedTotalAmount,
+        lines: salesOrder.lines?.map((line: any) => ({
+          qty: line.qty,
+          unitPrice: line.unitPrice,
+          amount: line.amount,
+          itemName: line.item?.name,
+        })),
+      });
+
+      // 수정된 totalAmount를 포함한 주문 정보 반환
+      const correctedOrder = {
+        ...salesOrder,
+        totalAmount: correctedTotalAmount,
+        // BigInt 값들을 Number로 변환
+        lines: salesOrder.lines?.map((line: any) => ({
+          ...line,
+          qty: Number(line.qty) || 0,
+          unitPrice: Number(line.unitPrice) || 0,
+          amount: Number(line.amount) || 0,
+        })),
+      };
+
+      return NextResponse.json({ success: true, order: correctedOrder });
     }
 
     const purchaseOrder = await prisma.purchaseOrder.findUnique({
@@ -58,7 +115,21 @@ export async function GET(
     });
 
     if (purchaseOrder) {
-      return NextResponse.json({ success: true, order: purchaseOrder });
+      // BigInt 값들을 Number로 변환
+      const correctedPurchaseOrder = {
+        ...purchaseOrder,
+        totalAmount: Number(purchaseOrder.totalAmount) || 0,
+        lines: purchaseOrder.lines?.map((line: any) => ({
+          ...line,
+          qty: Number(line.qty) || 0,
+          unitCost: Number(line.unitCost) || 0,
+          amount: Number(line.amount) || 0,
+        })),
+      };
+      return NextResponse.json({
+        success: true,
+        order: correctedPurchaseOrder,
+      });
     }
 
     return NextResponse.json({ error: "Order not found" }, { status: 404 });
@@ -66,6 +137,79 @@ export async function GET(
     console.error("Error fetching order details:", error);
     return NextResponse.json(
       { error: "Failed to fetch order details" },
+      { status: 500 }
+    );
+  } finally {
+    await prisma.$disconnect();
+  }
+}
+
+export async function PATCH(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const sessionUser = await getSessionUser();
+    if (!sessionUser) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const { id: orderId } = await params;
+    const { status, remarks } = await request.json();
+
+    if (!status) {
+      return NextResponse.json(
+        { error: "Status is required" },
+        { status: 400 }
+      );
+    }
+
+    // 판매주문과 구매주문을 모두 확인하고 업데이트
+    const salesOrder = await prisma.salesOrder.findUnique({
+      where: { id: orderId },
+    });
+
+    if (salesOrder) {
+      const updatedOrder = await prisma.salesOrder.update({
+        where: { id: orderId },
+        data: {
+          status,
+          ...(remarks !== undefined && { notes: remarks }),
+        },
+        include: {
+          customer: true,
+          salesperson: true,
+        },
+      });
+
+      return NextResponse.json({ success: true, order: updatedOrder });
+    }
+
+    const purchaseOrder = await prisma.purchaseOrder.findUnique({
+      where: { id: orderId },
+    });
+
+    if (purchaseOrder) {
+      const updatedOrder = await prisma.purchaseOrder.update({
+        where: { id: orderId },
+        data: {
+          status,
+          ...(remarks !== undefined && { notes: remarks }),
+        },
+        include: {
+          vendor: true,
+          buyer: true,
+        },
+      });
+
+      return NextResponse.json({ success: true, order: updatedOrder });
+    }
+
+    return NextResponse.json({ error: "Order not found" }, { status: 404 });
+  } catch (error) {
+    console.error("Error updating order status:", error);
+    return NextResponse.json(
+      { error: "Failed to update order status" },
       { status: 500 }
     );
   } finally {

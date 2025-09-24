@@ -97,14 +97,31 @@ export default function QuotationViewModal({
 
   const fetchQuotation = async () => {
     setLoading(true);
+
+    console.log("QuotationViewModal - fetchQuotation 호출:", {
+      quotationId,
+      version,
+      versionType: typeof version,
+    });
+
     try {
       const url = version
         ? `/api/quotations/${quotationId}?version=${version}`
         : `/api/quotations/${quotationId}`;
 
+      console.log("QuotationViewModal - 요청 URL:", url);
+
       const response = await fetch(url);
       if (response.ok) {
         const data = await response.json();
+        console.log("QuotationViewModal - Fetched quotation data:", {
+          quotationId,
+          version,
+          orderItems: data.quotation?.orderItems,
+          orderItemsLength: data.quotation?.orderItems?.length,
+          subtotal: data.quotation?.subtotal,
+          totalAmount: data.quotation?.totalAmount,
+        });
         setQuotation(data.quotation);
       } else {
         console.error("견적서 조회 실패");
@@ -694,11 +711,22 @@ export default function QuotationViewModal({
                     </tr>
                   </thead>
                   <tbody>
-                    {quotation.order?.lines &&
-                    quotation.order.lines.length > 0 ? (
+                    {(() => {
+                      console.log(
+                        "QuotationViewModal - 렌더링 시 orderItems:",
+                        {
+                          orderItems: quotation.orderItems,
+                          orderItemsType: typeof quotation.orderItems,
+                          orderItemsLength: quotation.orderItems?.length,
+                          quotation: quotation,
+                        }
+                      );
+                      return null;
+                    })()}
+                    {quotation.orderItems && quotation.orderItems.length > 0 ? (
                       <>
                         {/* 실제 제품들 */}
-                        {quotation.order.lines.map(
+                        {quotation.orderItems.map(
                           (line: any, index: number) => (
                             <tr key={index}>
                               <td
@@ -718,7 +746,7 @@ export default function QuotationViewModal({
                                 }}
                               >
                                 <div style={{ fontWeight: "500" }}>
-                                  {line.item?.name || "N/A"}
+                                  {line.itemName || "N/A"}
                                 </div>
                                 <div
                                   style={{
@@ -726,7 +754,7 @@ export default function QuotationViewModal({
                                     color: "#666666",
                                   }}
                                 >
-                                  {line.item?.code || ""}
+                                  {line.itemCode || ""}
                                 </div>
                               </td>
                               <td

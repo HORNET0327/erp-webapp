@@ -62,6 +62,18 @@ export async function POST(request: NextRequest) {
     const taxAmount = subtotal * (taxRate / 100);
     const totalAmount = subtotal + taxAmount;
 
+    // 주문 항목을 JSON으로 저장
+    const orderItems = JSON.stringify(
+      order.lines.map((line: any) => ({
+        itemId: line.itemId,
+        itemName: line.item?.name || "",
+        itemCode: line.item?.code || "",
+        qty: Number(line.qty) || 0,
+        unitPrice: Number(line.unitPrice) || 0,
+        amount: Number(line.amount) || 0,
+      }))
+    );
+
     // 견적서 생성
     const quotation = await prisma.quotation.create({
       data: {
@@ -83,6 +95,7 @@ export async function POST(request: NextRequest) {
         taxRate,
         taxAmount,
         totalAmount,
+        orderItems,
         expiresAt: new Date(Date.now() + 10 * 24 * 60 * 60 * 1000), // 10일 후
       },
       include: {
@@ -107,6 +120,19 @@ export async function POST(request: NextRequest) {
         quotationId: quotation.id,
         version,
         status: "DRAFT",
+        quotationName: quotationName || "견적 요청",
+        paymentDeadline: paymentDeadline || "발주후 14일 이내",
+        validityPeriod: validityPeriod || "견적일로 부터 10일",
+        deliveryLocation:
+          deliveryLocation || order.customer.address || "고객사 지정 장소",
+        paymentTerms: paymentTerms || "계약금 30%, 잔금 70%",
+        author: author || user.name || "차장 김제면",
+        remarks: remarks || "",
+        subtotal,
+        taxRate,
+        taxAmount,
+        totalAmount,
+        orderItems,
         changes: JSON.stringify({
           quotationName,
           paymentDeadline,

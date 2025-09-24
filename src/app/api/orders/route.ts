@@ -90,19 +90,42 @@ export async function GET(request: NextRequest) {
     }
 
     // Transform the data to match the frontend interface
-    const transformedOrders = orders.map((order: any) => ({
-      id: order.id,
-      orderNo: order.orderNo || order.poNo,
-      customerName: order.customer?.name,
-      customerEmail: order.customer?.email,
-      vendorName: order.vendor?.name,
-      orderDate: order.orderDate || order.poDate,
-      status: order.status,
-      totalAmount: Number(order.totalAmount || 0),
-      salespersonName: order.salesperson?.username,
-      buyerName: order.buyer?.username,
-      orderType: type,
-    }));
+    const transformedOrders = orders.map((order: any) => {
+      // totalAmount를 안전하게 숫자로 변환
+      let totalAmount = Number(order.totalAmount || 0);
+
+      // 비정상적으로 큰 값이면 0으로 설정
+      if (totalAmount > 1000000000 || isNaN(totalAmount)) {
+        console.warn("Abnormal totalAmount in order list:", {
+          orderNo: order.orderNo || order.poNo,
+          originalTotalAmount: order.totalAmount,
+          convertedTotalAmount: totalAmount,
+          type: typeof order.totalAmount,
+        });
+        totalAmount = 0;
+      }
+
+      console.log("Order totalAmount:", {
+        orderNo: order.orderNo || order.poNo,
+        originalTotalAmount: order.totalAmount,
+        convertedTotalAmount: totalAmount,
+        type: typeof order.totalAmount,
+      });
+
+      return {
+        id: order.id,
+        orderNo: order.orderNo || order.poNo,
+        customerName: order.customer?.name,
+        customerEmail: order.customer?.email,
+        vendorName: order.vendor?.name,
+        orderDate: order.orderDate || order.poDate,
+        status: order.status,
+        totalAmount: totalAmount,
+        salespersonName: order.salesperson?.username,
+        buyerName: order.buyer?.username,
+        orderType: type,
+      };
+    });
 
     return NextResponse.json({ orders: transformedOrders });
   } catch (error) {

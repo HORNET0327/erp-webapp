@@ -10,10 +10,12 @@ function hashPassword(plain) {
 async function main() {
   const targetId = "MASTER";
   const targetEmail = "MASTER@SND";
-  const targetName = "MASTER";
+  const targetName = "SND";
   const targetPassword = "pwd123!@#";
 
-  const existingTarget = await prisma.user.findUnique({ where: { id: targetId } });
+  const existingTarget = await prisma.user.findUnique({
+    where: { id: targetId },
+  });
   if (existingTarget) {
     // Update fields and ensure ADMIN role exists
     await prisma.user.update({
@@ -46,9 +48,18 @@ async function main() {
       const oldId = sourceUser.id;
       // Move dependent relations to MASTER in a transaction
       await prisma.$transaction([
-        prisma.userRole.updateMany({ where: { userId: oldId }, data: { userId: targetId } }),
-        prisma.session.updateMany({ where: { userId: oldId }, data: { userId: targetId } }),
-        prisma.userInfo.updateMany({ where: { userId: oldId }, data: { userId: targetId } }),
+        prisma.userRole.updateMany({
+          where: { userId: oldId },
+          data: { userId: targetId },
+        }),
+        prisma.session.updateMany({
+          where: { userId: oldId },
+          data: { userId: targetId },
+        }),
+        prisma.userInfo.updateMany({
+          where: { userId: oldId },
+          data: { userId: targetId },
+        }),
       ]);
       // Remove old user if different
       if (oldId !== targetId) {
@@ -80,15 +91,3 @@ main()
   .finally(async () => {
     await prisma.$disconnect();
   });
-
-
-
-
-
-
-
-
-
-
-
-

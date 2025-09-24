@@ -22,54 +22,116 @@ export async function GET(
 
     // 버전이 지정된 경우 해당 버전의 데이터를 가져오기
     if (version) {
-      const quotationVersion = await prisma.quotationVersion.findFirst({
-        where: {
-          quotationId: id,
-          version: parseInt(version),
-        },
-        include: {
-          quotation: {
-            include: {
-              order: {
-                include: {
-                  customer: true,
-                  lines: {
-                    include: {
-                      item: true,
+      try {
+        const quotationVersion = await prisma.quotationVersion.findFirst({
+          where: {
+            quotationId: id,
+            version: parseInt(version),
+          },
+          include: {
+            quotation: {
+              include: {
+                order: {
+                  include: {
+                    customer: true,
+                    lines: {
+                      include: {
+                        item: true,
+                      },
                     },
                   },
                 },
+                customer: true,
+                authorUser: true,
               },
-              customer: true,
-              authorUser: true,
             },
           },
-        },
-      });
+        });
 
-      if (!quotationVersion) {
+        if (!quotationVersion) {
+          return NextResponse.json(
+            { error: "해당 버전의 견적서를 찾을 수 없습니다." },
+            { status: 404 }
+          );
+        }
+
+        // 디버깅 로그 추가
+        console.log("=== API - DB에서 가져온 값 ===");
+        console.log(
+          "quotationVersion.orderItems:",
+          quotationVersion.orderItems
+        );
+        console.log(
+          "quotationVersion.orderItems type:",
+          typeof quotationVersion.orderItems
+        );
+        console.log(
+          "quotationVersion.orderItems is null:",
+          quotationVersion.orderItems === null
+        );
+        console.log(
+          "quotationVersion.orderItems is undefined:",
+          quotationVersion.orderItems === undefined
+        );
+        console.log(
+          "quotationVersion.orderItems length:",
+          quotationVersion.orderItems?.length
+        );
+        console.log("quotationVersion keys:", Object.keys(quotationVersion));
+
+        // JSON.parse 테스트
+        if (quotationVersion.orderItems) {
+          try {
+            const parsed = JSON.parse(quotationVersion.orderItems);
+            console.log("JSON.parse 성공:", parsed);
+            console.log("JSON.parse length:", parsed.length);
+          } catch (e) {
+            console.log("JSON.parse 실패:", e.message);
+          }
+        }
+
+        // 버전별 데이터로 견적서 객체 구성
+        const quotation = {
+          ...quotationVersion.quotation,
+          quotationName: quotationVersion.quotationName,
+          paymentDeadline: quotationVersion.paymentDeadline,
+          validityPeriod: quotationVersion.validityPeriod,
+          deliveryLocation: quotationVersion.deliveryLocation,
+          paymentTerms: quotationVersion.paymentTerms,
+          author: quotationVersion.author,
+          remarks: quotationVersion.remarks,
+          subtotal: quotationVersion.subtotal,
+          taxAmount: quotationVersion.taxAmount,
+          totalAmount: quotationVersion.totalAmount,
+          // 저장된 주문 항목 사용
+          orderItems: quotationVersion.orderItems
+            ? JSON.parse(quotationVersion.orderItems)
+            : [],
+        };
+
+        console.log("API - 반환할 quotation:", {
+          orderItems: quotation.orderItems,
+          orderItemsLength: quotation.orderItems?.length,
+          quotationKeys: Object.keys(quotation),
+          quotationOrderItems: quotation.orderItems,
+          quotationOrderItemsType: typeof quotation.orderItems,
+          quotationOrderItemsIsArray: Array.isArray(quotation.orderItems),
+        });
+
+        console.log("API - 최종 응답 전송:", {
+          quotationOrderItems: quotation.orderItems,
+          quotationOrderItemsLength: quotation.orderItems?.length,
+          quotationOrderItemsType: typeof quotation.orderItems,
+        });
+
+        return NextResponse.json({ quotation });
+      } catch (error) {
+        console.error("API 에러:", error);
         return NextResponse.json(
-          { error: "해당 버전의 견적서를 찾을 수 없습니다." },
-          { status: 404 }
+          { error: "견적서 조회 중 오류가 발생했습니다." },
+          { status: 500 }
         );
       }
-
-      // 버전별 데이터로 견적서 객체 구성
-      const quotation = {
-        ...quotationVersion.quotation,
-        quotationName: quotationVersion.quotationName,
-        paymentDeadline: quotationVersion.paymentDeadline,
-        validityPeriod: quotationVersion.validityPeriod,
-        deliveryLocation: quotationVersion.deliveryLocation,
-        paymentTerms: quotationVersion.paymentTerms,
-        author: quotationVersion.author,
-        remarks: quotationVersion.remarks,
-        subtotal: quotationVersion.subtotal,
-        taxAmount: quotationVersion.taxAmount,
-        totalAmount: quotationVersion.totalAmount,
-      };
-
-      return NextResponse.json({ quotation });
     }
 
     // 최신 버전 조회
@@ -119,11 +181,21 @@ export async function GET(
         subtotal: latestVersion.subtotal,
         taxAmount: latestVersion.taxAmount,
         totalAmount: latestVersion.totalAmount,
+        // 저장된 주문 항목 사용
+        orderItems: latestVersion.orderItems
+          ? JSON.parse(latestVersion.orderItems)
+          : [],
       };
       return NextResponse.json({ quotation: quotationWithVersionData });
     }
 
-    return NextResponse.json({ quotation });
+    // 기본 견적서 데이터에 저장된 주문 항목 추가
+    const quotationWithOrderItems = {
+      ...quotation,
+      orderItems: quotation.orderItems ? JSON.parse(quotation.orderItems) : [],
+    };
+
+    return NextResponse.json({ quotation: quotationWithOrderItems });
   } catch (error) {
     console.error("견적서 조회 오류:", error);
     return NextResponse.json(
@@ -161,9 +233,20 @@ export async function PUT(
       taxRate = 10,
     } = body;
 
-    // 기존 견적서 조회
+    // 기존 견적서 조회 (주문 항목 포함)
     const existingQuotation = await prisma.quotation.findUnique({
       where: { id },
+      include: {
+        order: {
+          include: {
+            lines: {
+              include: {
+                item: true,
+              },
+            },
+          },
+        },
+      },
     });
 
     if (!existingQuotation) {
@@ -176,6 +259,18 @@ export async function PUT(
     // 금액 계산
     const taxAmount = subtotal * (taxRate / 100);
     const totalAmount = subtotal + taxAmount;
+
+    // 주문 항목을 JSON으로 저장
+    const orderItems = JSON.stringify(
+      existingQuotation.order?.lines?.map((line: any) => ({
+        itemId: line.itemId,
+        itemName: line.item?.name || "",
+        itemCode: line.item?.code || "",
+        qty: Number(line.qty) || 0,
+        unitPrice: Number(line.unitPrice) || 0,
+        amount: Number(line.amount) || 0,
+      })) || []
+    );
 
     // 새 버전 생성
     const newVersion = existingQuotation.version + 1;
@@ -256,6 +351,7 @@ export async function PUT(
         taxRate,
         taxAmount,
         totalAmount,
+        orderItems,
         changes: JSON.stringify(actualChanges),
         createdBy: user.id,
       },

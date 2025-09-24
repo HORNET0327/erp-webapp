@@ -2,6 +2,20 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getSessionUser } from "@/lib/auth";
 
+// 상태명 매핑 함수
+function getStatusDisplayName(status: string): string {
+  const statusMap: { [key: string]: string } = {
+    pending: "견적대기",
+    quoted: "견적완료",
+    confirmed: "수주확정",
+    approved: "승인",
+    in_progress: "진행중",
+    completed: "완료",
+    cancelled: "취소",
+  };
+  return statusMap[status.toLowerCase()] || status;
+}
+
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -81,6 +95,7 @@ export async function GET(
         user: {
           select: {
             name: true,
+            username: true,
           },
         },
       },
@@ -144,7 +159,7 @@ export async function GET(
           orderNo: order.orderNo,
           customer: order.customer?.name,
           totalAmount: order.totalAmount,
-          status: order.status,
+          status: getStatusDisplayName(order.status),
         },
       });
     } else {
@@ -161,7 +176,7 @@ export async function GET(
           orderNo: order.poNo,
           vendor: order.vendor?.name,
           totalAmount: order.totalAmount,
-          status: order.status,
+          status: getStatusDisplayName(order.status),
         },
       });
     }
@@ -183,6 +198,7 @@ export async function GET(
             quotationId: quotation.id,
             quotationNo: quotation.quotationNo,
             quotationName: quotation.quotationName,
+            version: 1, // 첫 번째 버전
             subtotal: quotation.subtotal,
             totalAmount: quotation.totalAmount,
           },
@@ -246,6 +262,8 @@ export async function GET(
         action = "TAX_INVOICE_ISSUED";
       } else if (log.description.includes("수금등록")) {
         action = "PAYMENT_REGISTERED";
+      } else if (log.description.includes("주문 정보를 수정했습니다")) {
+        action = "ORDER_UPDATED";
       }
 
       historyItems.push({
@@ -253,7 +271,7 @@ export async function GET(
         action,
         description,
         timestamp: log.timestamp.toISOString(),
-        user: log.user?.name || "시스템",
+        user: log.user?.username || log.user?.name || "시스템",
         details: log.details,
       });
     }

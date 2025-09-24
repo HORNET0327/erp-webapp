@@ -344,6 +344,9 @@ model Quotation {
   taxAmount        Decimal  @db.Decimal(18,2)
   totalAmount      Decimal  @db.Decimal(18,2)
   
+  // 주문 항목 정보 (JSON으로 저장)
+  orderItems       String?  @db.VarChar(4000) // JSON string for order items
+  
   // 메타데이터
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
@@ -381,6 +384,7 @@ model QuotationVersion {
   taxRate          Decimal? @db.Decimal(5,2)
   taxAmount        Decimal? @db.Decimal(18,2)
   totalAmount      Decimal? @db.Decimal(18,2)
+  orderItems       String?  @db.VarChar(4000) // JSON string for order items
   
   // 변경된 필드들 (JSON 형태로 저장)
   changes          String   @db.VarChar(2000) // JSON string

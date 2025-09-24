@@ -103,6 +103,10 @@ function StatusBadge({ status }: { status: string }) {
     switch (status.toLowerCase()) {
       case "pending":
         return { background: "#fef3c7", color: "#92400e", border: "#f59e0b" };
+      case "quoted":
+        return { background: "#f0fdf4", color: "#166534", border: "#22c55e" };
+      case "confirmed":
+        return { background: "#e0e7ff", color: "#3730a3", border: "#6366f1" };
       case "approved":
         return { background: "#dbeafe", color: "#1e40af", border: "#3b82f6" };
       case "in_progress":
@@ -119,7 +123,9 @@ function StatusBadge({ status }: { status: string }) {
   const style = getStatusStyle(status);
   const statusText =
     {
-      pending: "대기",
+      pending: "견적대기",
+      quoted: "견적완료",
+      confirmed: "수주확정",
       approved: "승인",
       in_progress: "진행중",
       completed: "완료",
@@ -262,6 +268,17 @@ export default function OrdersPage() {
   };
 
   const handleCreateShipment = async (order: any) => {
+    // 견적대기 상태인 경우 처리 중단
+    if (order.status === "pending") {
+      alert("견적대기 상태인 주문은 출고지시를 생성할 수 없습니다.");
+      return;
+    }
+    // 취소 상태인 경우 처리 중단
+    if (order.status === "cancelled") {
+      alert("취소된 주문은 출고지시를 생성할 수 없습니다.");
+      return;
+    }
+
     // 출고지시 기능 구현
     if (confirm(`주문 ${order.orderNo}에 대한 출고지시를 생성하시겠습니까?`)) {
       try {
@@ -288,11 +305,25 @@ export default function OrdersPage() {
   };
 
   const handleCreateOrder = async (order: any) => {
+    // 취소 상태인 경우 처리 중단
+    if (order.status === "cancelled") {
+      alert("취소된 주문은 수주등록을 할 수 없습니다.");
+      return;
+    }
+
     // 수주 등록 기능 구현
     if (confirm(`주문 ${order.orderNo}에 대한 수주를 등록하시겠습니까?`)) {
       try {
-        // TODO: 수주 등록 API 호출
-        console.log("수주 등록:", order);
+        // 주문 상태를 "수주확정"으로 변경
+        const statusResponse = await fetch(`/api/orders/${order.id}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ status: "confirmed" }),
+        });
+
+        if (!statusResponse.ok) {
+          throw new Error("주문 상태 업데이트에 실패했습니다.");
+        }
 
         // 활동 로그 기록
         await fetch(`/api/orders/${order.id}/log-activity`, {
@@ -305,7 +336,12 @@ export default function OrdersPage() {
           }),
         });
 
-        alert("수주가 등록되었습니다.");
+        // 주문 목록 새로고침
+        await fetchOrders();
+
+        alert(
+          "수주가 등록되었습니다. 주문 상태가 '수주확정'으로 변경되었습니다."
+        );
       } catch (error) {
         console.error("수주 등록 오류:", error);
         alert("수주 등록 중 오류가 발생했습니다.");
@@ -314,6 +350,17 @@ export default function OrdersPage() {
   };
 
   const handleProcessShipment = async (order: any) => {
+    // 견적대기 상태인 경우 처리 중단
+    if (order.status === "pending") {
+      alert("견적대기 상태인 주문은 출고처리를 할 수 없습니다.");
+      return;
+    }
+    // 취소 상태인 경우 처리 중단
+    if (order.status === "cancelled") {
+      alert("취소된 주문은 출고처리를 할 수 없습니다.");
+      return;
+    }
+
     // 출고 처리 기능 구현
     if (confirm(`주문 ${order.orderNo}에 대한 출고를 처리하시겠습니까?`)) {
       try {
@@ -340,6 +387,17 @@ export default function OrdersPage() {
   };
 
   const handleIssueTaxInvoice = async (order: any) => {
+    // 견적대기 상태인 경우 처리 중단
+    if (order.status === "pending") {
+      alert("견적대기 상태인 주문은 세금계산서를 발행할 수 없습니다.");
+      return;
+    }
+    // 취소 상태인 경우 처리 중단
+    if (order.status === "cancelled") {
+      alert("취소된 주문은 세금계산서를 발행할 수 없습니다.");
+      return;
+    }
+
     // 세금계산서 발행 기능 구현
     if (
       confirm(`주문 ${order.orderNo}에 대한 세금계산서를 발행하시겠습니까?`)
@@ -368,6 +426,17 @@ export default function OrdersPage() {
   };
 
   const handleRegisterPayment = async (order: any) => {
+    // 견적대기 상태인 경우 처리 중단
+    if (order.status === "pending") {
+      alert("견적대기 상태인 주문은 수금등록을 할 수 없습니다.");
+      return;
+    }
+    // 취소 상태인 경우 처리 중단
+    if (order.status === "cancelled") {
+      alert("취소된 주문은 수금등록을 할 수 없습니다.");
+      return;
+    }
+
     // 수금등록 기능 구현
     if (confirm(`주문 ${order.orderNo}에 대한 수금을 등록하시겠습니까?`)) {
       try {
@@ -572,7 +641,9 @@ export default function OrdersPage() {
             }}
           >
             <option value="all">전체 상태</option>
-            <option value="pending">대기</option>
+            <option value="pending">견적대기</option>
+            <option value="quoted">견적완료</option>
+            <option value="confirmed">수주확정</option>
             <option value="approved">승인</option>
             <option value="in_progress">진행중</option>
             <option value="completed">완료</option>
@@ -860,75 +931,171 @@ export default function OrdersPage() {
                               </button>
                               <button
                                 onClick={() => handleCreateOrder(order)}
+                                disabled={order.status === "cancelled"}
                                 style={{
                                   padding: "6px 12px",
-                                  background: "#3b82f6",
-                                  color: "#ffffff",
+                                  background:
+                                    order.status === "cancelled"
+                                      ? "#d1d5db"
+                                      : "#3b82f6",
+                                  color:
+                                    order.status === "cancelled"
+                                      ? "#9ca3af"
+                                      : "#ffffff",
                                   border: "none",
                                   borderRadius: "4px",
                                   fontSize: "12px",
-                                  cursor: "pointer",
+                                  cursor:
+                                    order.status === "cancelled"
+                                      ? "not-allowed"
+                                      : "pointer",
                                   whiteSpace: "nowrap",
+                                  opacity:
+                                    order.status === "cancelled" ? 0.6 : 1,
                                 }}
                               >
                                 수주등록
                               </button>
                               <button
                                 onClick={() => handleCreateShipment(order)}
+                                disabled={
+                                  order.status === "pending" ||
+                                  order.status === "cancelled"
+                                }
                                 style={{
                                   padding: "6px 12px",
-                                  background: "#f59e0b",
-                                  color: "#ffffff",
+                                  background:
+                                    order.status === "pending" ||
+                                    order.status === "cancelled"
+                                      ? "#d1d5db"
+                                      : "#f59e0b",
+                                  color:
+                                    order.status === "pending" ||
+                                    order.status === "cancelled"
+                                      ? "#9ca3af"
+                                      : "#ffffff",
                                   border: "none",
                                   borderRadius: "4px",
                                   fontSize: "12px",
-                                  cursor: "pointer",
+                                  cursor:
+                                    order.status === "pending" ||
+                                    order.status === "cancelled"
+                                      ? "not-allowed"
+                                      : "pointer",
                                   whiteSpace: "nowrap",
+                                  opacity:
+                                    order.status === "pending" ||
+                                    order.status === "cancelled"
+                                      ? 0.6
+                                      : 1,
                                 }}
                               >
                                 출고지시
                               </button>
                               <button
                                 onClick={() => handleProcessShipment(order)}
+                                disabled={
+                                  order.status === "pending" ||
+                                  order.status === "cancelled"
+                                }
                                 style={{
                                   padding: "6px 12px",
-                                  background: "#8b5cf6",
-                                  color: "#ffffff",
+                                  background:
+                                    order.status === "pending" ||
+                                    order.status === "cancelled"
+                                      ? "#d1d5db"
+                                      : "#8b5cf6",
+                                  color:
+                                    order.status === "pending" ||
+                                    order.status === "cancelled"
+                                      ? "#9ca3af"
+                                      : "#ffffff",
                                   border: "none",
                                   borderRadius: "4px",
                                   fontSize: "12px",
-                                  cursor: "pointer",
+                                  cursor:
+                                    order.status === "pending" ||
+                                    order.status === "cancelled"
+                                      ? "not-allowed"
+                                      : "pointer",
                                   whiteSpace: "nowrap",
+                                  opacity:
+                                    order.status === "pending" ||
+                                    order.status === "cancelled"
+                                      ? 0.6
+                                      : 1,
                                 }}
                               >
                                 출고처리
                               </button>
                               <button
                                 onClick={() => handleIssueTaxInvoice(order)}
+                                disabled={
+                                  order.status === "pending" ||
+                                  order.status === "cancelled"
+                                }
                                 style={{
                                   padding: "6px 12px",
-                                  background: "#ef4444",
-                                  color: "#ffffff",
+                                  background:
+                                    order.status === "pending" ||
+                                    order.status === "cancelled"
+                                      ? "#d1d5db"
+                                      : "#ef4444",
+                                  color:
+                                    order.status === "pending" ||
+                                    order.status === "cancelled"
+                                      ? "#9ca3af"
+                                      : "#ffffff",
                                   border: "none",
                                   borderRadius: "4px",
                                   fontSize: "12px",
-                                  cursor: "pointer",
+                                  cursor:
+                                    order.status === "pending" ||
+                                    order.status === "cancelled"
+                                      ? "not-allowed"
+                                      : "pointer",
                                   whiteSpace: "nowrap",
+                                  opacity:
+                                    order.status === "pending" ||
+                                    order.status === "cancelled"
+                                      ? 0.6
+                                      : 1,
                                 }}
                               >
                                 세금계산서
                               </button>
                               <button
                                 onClick={() => handleRegisterPayment(order)}
+                                disabled={
+                                  order.status === "pending" ||
+                                  order.status === "cancelled"
+                                }
                                 style={{
                                   padding: "6px 12px",
-                                  background: "#06b6d4",
-                                  color: "#ffffff",
+                                  background:
+                                    order.status === "pending" ||
+                                    order.status === "cancelled"
+                                      ? "#d1d5db"
+                                      : "#06b6d4",
+                                  color:
+                                    order.status === "pending" ||
+                                    order.status === "cancelled"
+                                      ? "#9ca3af"
+                                      : "#ffffff",
                                   border: "none",
                                   borderRadius: "4px",
                                   fontSize: "12px",
-                                  cursor: "pointer",
+                                  cursor:
+                                    order.status === "pending" ||
+                                    order.status === "cancelled"
+                                      ? "not-allowed"
+                                      : "pointer",
                                   whiteSpace: "nowrap",
+                                  opacity:
+                                    order.status === "pending" ||
+                                    order.status === "cancelled"
+                                      ? 0.6
+                                      : 1,
                                 }}
                               >
                                 수금등록
@@ -977,6 +1144,7 @@ export default function OrdersPage() {
           onClose={handleDetailModalClose}
           order={selectedOrder}
           type={activeTab}
+          onOrderUpdated={fetchOrders}
         />
 
         {/* Quotation Modal */}
@@ -984,6 +1152,7 @@ export default function OrdersPage() {
           isOpen={isQuotationModalOpen}
           onClose={handleQuotationModalClose}
           order={selectedOrder}
+          onOrderUpdated={fetchOrders}
         />
 
         {/* Email Modal */}

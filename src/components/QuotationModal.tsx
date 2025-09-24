@@ -9,12 +9,14 @@ interface QuotationModalProps {
   isOpen: boolean;
   onClose: () => void;
   order: any;
+  onOrderUpdated?: () => void;
 }
 
 export default function QuotationModal({
   isOpen,
   onClose,
   order,
+  onOrderUpdated,
 }: QuotationModalProps) {
   const [quotationData, setQuotationData] = useState<any>(null);
   const [loading, setLoading] = useState(false);
@@ -195,6 +197,12 @@ export default function QuotationModal({
   // 견적서 저장
   const handleSaveQuotation = async () => {
     if (!quotationData || !order) return;
+
+    // 견적대기 상태가 아닌 경우 처리 중단
+    if (order.status !== "pending") {
+      alert("견적대기 상태의 주문만 견적서를 저장할 수 있습니다.");
+      return;
+    }
 
     setIsSaving(true);
     try {
@@ -443,6 +451,28 @@ export default function QuotationModal({
     try {
       setLoading(true);
 
+      // 주문 상태를 "견적완료"로 변경
+      const statusResponse = await fetch(`/api/orders/${order.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: "quoted" }),
+      });
+
+      if (!statusResponse.ok) {
+        throw new Error("주문 상태 업데이트에 실패했습니다.");
+      }
+
+      // 활동 로그 기록
+      await fetch(`/api/orders/${order.id}/log-activity`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "QUOTATION_SENT",
+          description: `견적서를 발송했습니다: ${order.orderNo}`,
+          metadata: { orderNo: order.orderNo },
+        }),
+      });
+
       // HTML을 캔버스로 변환 (PDF 다운로드와 동일한 방식)
       const canvas = await html2canvas(pdfRef.current, {
         scale: 2, // 고해상도
@@ -456,9 +486,12 @@ export default function QuotationModal({
       // 이메일 모달 열기 (이미지 데이터와 함께)
       setIsEmailModalOpen(true);
       setQuotationImageData(imageData);
+
+      // 주문 목록 새로고침
+      onOrderUpdated?.();
     } catch (error) {
-      console.error("견적서 이미지 생성 중 오류:", error);
-      alert("견적서 이미지 생성 중 오류가 발생했습니다.");
+      console.error("견적서 발송 중 오류:", error);
+      alert("견적서 발송 중 오류가 발생했습니다.");
     } finally {
       setLoading(false);
     }
@@ -520,17 +553,24 @@ export default function QuotationModal({
           <div style={{ display: "flex", gap: "8px" }}>
             <button
               onClick={handleSaveQuotation}
-              disabled={isSaving || loading}
+              disabled={isSaving || loading || order?.status !== "pending"}
               style={{
                 padding: "8px 16px",
-                background: isSaving || loading ? "#6b7280" : "#f59e0b",
+                background:
+                  isSaving || loading || order?.status !== "pending"
+                    ? "#6b7280"
+                    : "#f59e0b",
                 color: "#ffffff",
                 border: "none",
                 borderRadius: "6px",
                 fontSize: "14px",
                 fontWeight: "500",
-                cursor: isSaving || loading ? "not-allowed" : "pointer",
-                opacity: isSaving || loading ? 0.7 : 1,
+                cursor:
+                  isSaving || loading || order?.status !== "pending"
+                    ? "not-allowed"
+                    : "pointer",
+                opacity:
+                  isSaving || loading || order?.status !== "pending" ? 0.7 : 1,
               }}
             >
               {isSaving

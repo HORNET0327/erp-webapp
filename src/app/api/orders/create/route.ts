@@ -68,6 +68,14 @@ export async function POST(request: NextRequest) {
       const { customerId, orderDate, status, totalAmount, notes, lines } =
         orderData;
 
+      // totalAmount를 안전하게 숫자로 변환
+      const safeTotalAmount = Number(totalAmount) || 0;
+      console.log("Total amount conversion:", {
+        original: totalAmount,
+        converted: safeTotalAmount,
+        type: typeof totalAmount,
+      });
+
       // 순차 주문번호 생성
       const orderNo = await generateOrderNumber("sales", orderDate);
 
@@ -79,7 +87,7 @@ export async function POST(request: NextRequest) {
           salespersonId: sessionUser.id,
           orderDate: new Date(orderDate),
           status: status || "pending",
-          totalAmount,
+          totalAmount: safeTotalAmount,
           notes,
         },
       });
@@ -139,6 +147,14 @@ export async function POST(request: NextRequest) {
       const { vendorId, orderDate, status, totalAmount, notes, lines } =
         orderData;
 
+      // totalAmount를 안전하게 숫자로 변환
+      const safeTotalAmount = Number(totalAmount) || 0;
+      console.log("Purchase order total amount conversion:", {
+        original: totalAmount,
+        converted: safeTotalAmount,
+        type: typeof totalAmount,
+      });
+
       // 순차 주문번호 생성
       const poNo = await generateOrderNumber("purchase", orderDate);
 
@@ -150,7 +166,7 @@ export async function POST(request: NextRequest) {
           buyerId: sessionUser.id,
           orderDate: new Date(orderDate),
           status: status || "pending",
-          totalAmount,
+          totalAmount: safeTotalAmount,
           notes,
         },
       });

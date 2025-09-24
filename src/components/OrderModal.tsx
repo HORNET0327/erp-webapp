@@ -268,7 +268,9 @@ export default function OrderModal({
     // 기본 판매단가가 있으면 자동으로 단가에 입력
     if (item.basePrice && item.basePrice > 0) {
       updatedLines[index].unitPrice = item.basePrice;
-      updatedLines[index].total = updatedLines[index].qty * item.basePrice;
+      const qty = Number(updatedLines[index].qty) || 0;
+      const unitPrice = Number(item.basePrice) || 0;
+      updatedLines[index].total = qty * unitPrice;
     }
 
     setOrderLines(updatedLines);
@@ -283,8 +285,9 @@ export default function OrderModal({
     (updatedLines[index] as any)[field] = value;
 
     if (field === "qty" || field === "unitPrice") {
-      updatedLines[index].total =
-        updatedLines[index].qty * updatedLines[index].unitPrice;
+      const qty = Number(updatedLines[index].qty) || 0;
+      const unitPrice = Number(updatedLines[index].unitPrice) || 0;
+      updatedLines[index].total = qty * unitPrice;
     }
 
     setOrderLines(updatedLines);
@@ -332,9 +335,9 @@ export default function OrderModal({
         .filter((line) => line.itemId && line.qty > 0)
         .map((line) => ({
           itemId: line.itemId,
-          qty: line.qty,
-          unitPrice: line.unitPrice,
-          amount: line.total,
+          qty: Number(line.qty) || 0,
+          unitPrice: Number(line.unitPrice) || 0,
+          amount: Number(line.total) || 0,
         }));
 
       const orderPayload = {
