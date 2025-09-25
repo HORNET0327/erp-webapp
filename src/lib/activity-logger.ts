@@ -9,7 +9,9 @@ export interface ActivityLogData {
 
 export async function logActivity(data: ActivityLogData) {
   try {
-    const response = await fetch("/api/activity-logs", {
+    // 서버 사이드에서는 절대 URL을 사용해야 합니다
+    const baseUrl = process.env.NEXTAUTH_URL || "http://localhost:3000";
+    const response = await fetch(`${baseUrl}/api/activity-logs`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",

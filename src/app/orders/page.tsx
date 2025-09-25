@@ -7,6 +7,8 @@ import OrderDetailModal from "@/components/OrderDetailModal";
 import QuotationModal from "@/components/QuotationModal";
 import EmailModal from "@/components/EmailModal";
 import HistoryModal from "@/components/HistoryModal";
+import ShipmentCheckModal from "@/components/ShipmentCheckModal";
+import OrderRegistrationModal from "@/components/OrderRegistrationModal";
 
 interface Order {
   id: string;
@@ -162,6 +164,10 @@ export default function OrdersPage() {
   const [isQuotationModalOpen, setIsQuotationModalOpen] = useState(false);
   const [isEmailModalOpen, setIsEmailModalOpen] = useState(false);
   const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
+  const [isShipmentCheckModalOpen, setIsShipmentCheckModalOpen] =
+    useState(false);
+  const [isOrderRegistrationModalOpen, setIsOrderRegistrationModalOpen] =
+    useState(false);
   const [selectedOrder, setSelectedOrder] = useState<any>(null);
 
   useEffect(() => {
@@ -279,28 +285,32 @@ export default function OrdersPage() {
       return;
     }
 
-    // 출고지시 기능 구현
-    if (confirm(`주문 ${order.orderNo}에 대한 출고지시를 생성하시겠습니까?`)) {
-      try {
-        // TODO: 출고지시 API 호출
-        console.log("출고지시 생성:", order);
+    // 출고 가능 여부 확인 모달 열기
+    setSelectedOrder(order);
+    setIsShipmentCheckModalOpen(true);
+  };
 
-        // 활동 로그 기록
-        await fetch(`/api/orders/${order.id}/log-activity`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            action: "SHIPMENT_CREATE",
-            description: `출고지시를 생성했습니다: ${order.orderNo}`,
-            metadata: { orderNo: order.orderNo },
-          }),
-        });
+  const handleConfirmShipment = async (orderId: string) => {
+    try {
+      // 출고지시 API 호출
+      console.log("출고지시 생성:", orderId);
 
-        alert("출고지시가 생성되었습니다.");
-      } catch (error) {
-        console.error("출고지시 생성 오류:", error);
-        alert("출고지시 생성 중 오류가 발생했습니다.");
-      }
+      // 활동 로그 기록
+      await fetch(`/api/orders/${orderId}/log-activity`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "SHIPMENT_CREATE",
+          description: `출고지시를 생성했습니다: ${selectedOrder?.orderNo}`,
+          metadata: { orderNo: selectedOrder?.orderNo },
+        }),
+      });
+
+      alert("출고지시가 생성되었습니다.");
+      fetchOrders(); // 주문 목록 새로고침
+    } catch (error) {
+      console.error("출고지시 생성 오류:", error);
+      alert("출고지시 생성 중 오류가 발생했습니다.");
     }
   };
 
@@ -311,42 +321,9 @@ export default function OrdersPage() {
       return;
     }
 
-    // 수주 등록 기능 구현
-    if (confirm(`주문 ${order.orderNo}에 대한 수주를 등록하시겠습니까?`)) {
-      try {
-        // 주문 상태를 "수주확정"으로 변경
-        const statusResponse = await fetch(`/api/orders/${order.id}`, {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ status: "confirmed" }),
-        });
-
-        if (!statusResponse.ok) {
-          throw new Error("주문 상태 업데이트에 실패했습니다.");
-        }
-
-        // 활동 로그 기록
-        await fetch(`/api/orders/${order.id}/log-activity`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            action: "ORDER_REGISTER",
-            description: `수주등록을 완료했습니다: ${order.orderNo}`,
-            metadata: { orderNo: order.orderNo },
-          }),
-        });
-
-        // 주문 목록 새로고침
-        await fetchOrders();
-
-        alert(
-          "수주가 등록되었습니다. 주문 상태가 '수주확정'으로 변경되었습니다."
-        );
-      } catch (error) {
-        console.error("수주 등록 오류:", error);
-        alert("수주 등록 중 오류가 발생했습니다.");
-      }
-    }
+    // 수주 등록 모달 열기
+    setSelectedOrder(order);
+    setIsOrderRegistrationModalOpen(true);
   };
 
   const handleProcessShipment = async (order: any) => {
@@ -931,27 +908,26 @@ export default function OrdersPage() {
                               </button>
                               <button
                                 onClick={() => handleCreateOrder(order)}
-                                disabled={order.status === "cancelled"}
+                                disabled={order.status !== "pending"}
                                 style={{
                                   padding: "6px 12px",
                                   background:
-                                    order.status === "cancelled"
+                                    order.status !== "pending"
                                       ? "#d1d5db"
                                       : "#3b82f6",
                                   color:
-                                    order.status === "cancelled"
+                                    order.status !== "pending"
                                       ? "#9ca3af"
                                       : "#ffffff",
                                   border: "none",
                                   borderRadius: "4px",
                                   fontSize: "12px",
                                   cursor:
-                                    order.status === "cancelled"
+                                    order.status !== "pending"
                                       ? "not-allowed"
                                       : "pointer",
                                   whiteSpace: "nowrap",
-                                  opacity:
-                                    order.status === "cancelled" ? 0.6 : 1,
+                                  opacity: order.status !== "pending" ? 0.6 : 1,
                                 }}
                               >
                                 수주등록
@@ -1169,6 +1145,22 @@ export default function OrdersPage() {
           onClose={handleHistoryModalClose}
           orderId={selectedOrder?.id}
           orderNo={selectedOrder?.orderNo}
+        />
+
+        {/* Shipment Check Modal */}
+        <ShipmentCheckModal
+          isOpen={isShipmentCheckModalOpen}
+          onClose={() => setIsShipmentCheckModalOpen(false)}
+          orderId={selectedOrder?.id}
+          onConfirmShipment={handleConfirmShipment}
+        />
+
+        {/* Order Registration Modal */}
+        <OrderRegistrationModal
+          isOpen={isOrderRegistrationModalOpen}
+          onClose={() => setIsOrderRegistrationModalOpen(false)}
+          order={selectedOrder}
+          onOrderUpdated={fetchOrders}
         />
       </div>
     </div>

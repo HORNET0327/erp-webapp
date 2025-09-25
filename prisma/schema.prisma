@@ -203,7 +203,8 @@ model SalesOrder {
   requiredDate  DateTime?
   status        String   @db.VarChar(16) // OPEN, CLOSED, CANCELLED, PENDING
   totalAmount   Decimal  @db.Decimal(18,2)
-  notes         String?  @db.VarChar(500)
+  notes         String?  @db.VarChar(500) // 주문 상세보기 비고
+  orderMemo     String?  @db.VarChar(1000) // 수주등록 시 입력한 메모 (출고지시서 특이사항용)
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
