@@ -175,8 +175,14 @@ export default function InventoryPage() {
 
     if (stockStatusFilter) {
       filtered = filtered.filter((item) => {
-        const status = getStockStatus(item.currentStock);
-        return status.text === stockStatusFilter;
+        if (stockStatusFilter === "low") {
+          return (
+            item.currentStock > 0 && item.currentStock <= (item.minStock || 10)
+          );
+        } else if (stockStatusFilter === "out") {
+          return item.currentStock === 0;
+        }
+        return false;
       });
     }
 
@@ -298,7 +304,11 @@ export default function InventoryPage() {
   // Statistics
   const totalProducts = filteredInventory.length;
   const lowStockProducts = filteredInventory.filter(
-    (item) => item.currentStock <= 10
+    (item) =>
+      item.currentStock > 0 && item.currentStock <= (item.minStock || 10)
+  ).length;
+  const outOfStockProducts = filteredInventory.filter(
+    (item) => item.currentStock === 0
   ).length;
   const totalValue = filteredInventory.reduce(
     (sum, item) => sum + item.currentStock * item.avgPurchasePrice,
@@ -412,35 +422,33 @@ export default function InventoryPage() {
 
           <div
             onClick={() => {
-              setStockStatusFilter(
-                stockStatusFilter === "부족" ? null : "부족"
-              );
+              setStockStatusFilter(stockStatusFilter === "low" ? null : "low");
             }}
             style={{
-              background: stockStatusFilter === "부족" ? "#fef2f2" : "#ffffff",
+              background: stockStatusFilter === "low" ? "#fef2f2" : "#ffffff",
               padding: "10px",
               borderRadius: "12px",
               border:
-                stockStatusFilter === "부족"
-                  ? "2px solid #ef4444"
+                stockStatusFilter === "low"
+                  ? "2px solid #f59e0b"
                   : "1px solid #e5e7eb",
               boxShadow:
-                stockStatusFilter === "부족"
-                  ? "0 4px 6px rgba(239, 68, 68, 0.1)"
+                stockStatusFilter === "low"
+                  ? "0 4px 6px rgba(245, 158, 11, 0.1)"
                   : "0 1px 3px rgba(0,0,0,0.1)",
               cursor: "pointer",
               transition: "all 0.2s ease",
             }}
             onMouseEnter={(e) => {
-              if (stockStatusFilter !== "부족") {
+              if (stockStatusFilter !== "low") {
                 e.currentTarget.style.background = "#fef2f2";
-                e.currentTarget.style.border = "2px solid #ef4444";
+                e.currentTarget.style.border = "2px solid #f59e0b";
                 e.currentTarget.style.boxShadow =
-                  "0 4px 6px rgba(239, 68, 68, 0.1)";
+                  "0 4px 6px rgba(245, 158, 11, 0.1)";
               }
             }}
             onMouseLeave={(e) => {
-              if (stockStatusFilter !== "부족") {
+              if (stockStatusFilter !== "low") {
                 e.currentTarget.style.background = "#ffffff";
                 e.currentTarget.style.border = "1px solid #e5e7eb";
                 e.currentTarget.style.boxShadow = "0 1px 3px rgba(0,0,0,0.1)";
@@ -464,6 +472,61 @@ export default function InventoryPage() {
               }}
             >
               {lowStockProducts}
+            </div>
+          </div>
+
+          <div
+            style={{
+              background: stockStatusFilter === "out" ? "#fef2f2" : "#ffffff",
+              padding: "10px",
+              borderRadius: "12px",
+              border:
+                stockStatusFilter === "out"
+                  ? "2px solid #ef4444"
+                  : "1px solid #e5e7eb",
+              boxShadow:
+                stockStatusFilter === "out"
+                  ? "0 4px 6px rgba(239, 68, 68, 0.1)"
+                  : "0 1px 3px rgba(0,0,0,0.1)",
+              cursor: "pointer",
+              transition: "all 0.2s ease",
+            }}
+            onClick={() =>
+              setStockStatusFilter(stockStatusFilter === "out" ? null : "out")
+            }
+            onMouseEnter={(e) => {
+              if (stockStatusFilter !== "out") {
+                e.currentTarget.style.background = "#fef2f2";
+                e.currentTarget.style.border = "2px solid #ef4444";
+                e.currentTarget.style.boxShadow =
+                  "0 4px 6px rgba(239, 68, 68, 0.1)";
+              }
+            }}
+            onMouseLeave={(e) => {
+              if (stockStatusFilter !== "out") {
+                e.currentTarget.style.background = "#ffffff";
+                e.currentTarget.style.border = "1px solid #e5e7eb";
+                e.currentTarget.style.boxShadow = "0 1px 3px rgba(0,0,0,0.1)";
+              }
+            }}
+          >
+            <div
+              style={{
+                fontSize: "14px",
+                color: "#000000",
+                marginBottom: "8px",
+              }}
+            >
+              재고 없음
+            </div>
+            <div
+              style={{
+                fontSize: "32px",
+                fontWeight: "700",
+                color: "#ef4444",
+              }}
+            >
+              {outOfStockProducts}
             </div>
           </div>
 
@@ -621,6 +684,7 @@ export default function InventoryPage() {
               onClick={() => {
                 setSearchTerm("");
                 setFilters({ brand: "", category: "" });
+                setStockStatusFilter(null);
               }}
               style={{
                 padding: "8px 16px",
@@ -636,6 +700,101 @@ export default function InventoryPage() {
             </button>
           </div>
         </div>
+
+        {/* Active Filters Display */}
+        {(searchTerm ||
+          filters.brand ||
+          filters.category ||
+          stockStatusFilter) && (
+          <div
+            style={{
+              background: "#ffffff",
+              padding: "16px",
+              borderRadius: "8px",
+              border: "1px solid #e5e7eb",
+              marginBottom: "16px",
+              boxShadow: "0 1px 3px rgba(0,0,0,0.1)",
+            }}
+          >
+            <div
+              style={{
+                fontSize: "14px",
+                fontWeight: "500",
+                color: "#000000",
+                marginBottom: "8px",
+              }}
+            >
+              적용된 필터:
+            </div>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: "8px" }}>
+              {searchTerm && (
+                <span
+                  style={{
+                    background: "#dbeafe",
+                    color: "#1e40af",
+                    padding: "4px 8px",
+                    borderRadius: "4px",
+                    fontSize: "12px",
+                  }}
+                >
+                  검색: "{searchTerm}"
+                </span>
+              )}
+              {filters.brand && (
+                <span
+                  style={{
+                    background: "#d1fae5",
+                    color: "#065f46",
+                    padding: "4px 8px",
+                    borderRadius: "4px",
+                    fontSize: "12px",
+                  }}
+                >
+                  브랜드: {filters.brand}
+                </span>
+              )}
+              {filters.category && (
+                <span
+                  style={{
+                    background: "#fef3c7",
+                    color: "#92400e",
+                    padding: "4px 8px",
+                    borderRadius: "4px",
+                    fontSize: "12px",
+                  }}
+                >
+                  카테고리: {filters.category}
+                </span>
+              )}
+              {stockStatusFilter === "low" && (
+                <span
+                  style={{
+                    background: "#fef2f2",
+                    color: "#dc2626",
+                    padding: "4px 8px",
+                    borderRadius: "4px",
+                    fontSize: "12px",
+                  }}
+                >
+                  재고 부족
+                </span>
+              )}
+              {stockStatusFilter === "out" && (
+                <span
+                  style={{
+                    background: "#fef2f2",
+                    color: "#dc2626",
+                    padding: "4px 8px",
+                    borderRadius: "4px",
+                    fontSize: "12px",
+                  }}
+                >
+                  재고 없음
+                </span>
+              )}
+            </div>
+          </div>
+        )}
 
         {/* Inventory Table */}
         <div

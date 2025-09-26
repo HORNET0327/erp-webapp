@@ -1,9 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSessionUser } from "@/lib/auth";
-import { PrismaClient } from "@prisma/client";
+import { prisma } from "@/lib/prisma";
 import { isLeadUserOrAbove } from "@/lib/permissions";
-
-const prisma = new PrismaClient();
 
 export async function GET(request: NextRequest) {
   try {
@@ -63,11 +61,59 @@ export async function GET(request: NextRequest) {
       },
     });
 
-    // Get completed orders
+    // Get confirmed orders (수주확정)
+    const confirmedOrders = await prisma[model].count({
+      where: {
+        ...whereClause,
+        status: "confirmed",
+      },
+    });
+
+    // Get ready to ship orders (출고대기)
+    const readyToShipOrders = await prisma[model].count({
+      where: {
+        ...whereClause,
+        status: "ready_to_ship",
+      },
+    });
+
+    // Get shipping orders (배송중)
+    const shippingOrders = await prisma[model].count({
+      where: {
+        ...whereClause,
+        status: "shipping",
+      },
+    });
+
+    // Get shipped orders (배송완료)
+    const shippedOrders = await prisma[model].count({
+      where: {
+        ...whereClause,
+        status: "shipped",
+      },
+    });
+
+    // Get payment pending orders (수금대기)
+    const paymentPendingOrders = await prisma[model].count({
+      where: {
+        ...whereClause,
+        status: "payment_pending",
+      },
+    });
+
+    // Get completed orders (수금완료)
     const completedOrders = await prisma[model].count({
       where: {
         ...whereClause,
         status: "completed",
+      },
+    });
+
+    // Get cancelled orders
+    const cancelledOrders = await prisma[model].count({
+      where: {
+        ...whereClause,
+        status: "cancelled",
       },
     });
 
@@ -105,7 +151,13 @@ export async function GET(request: NextRequest) {
     const stats = {
       totalOrders,
       pendingOrders,
+      confirmedOrders,
+      readyToShipOrders,
+      shippingOrders,
+      shippedOrders,
+      paymentPendingOrders,
       completedOrders,
+      cancelledOrders,
       totalValue: Number(totalValueResult._sum.totalAmount || 0),
       monthlyOrders,
       monthlyValue: Number(monthlyValueResult._sum.totalAmount || 0),
@@ -118,7 +170,5 @@ export async function GET(request: NextRequest) {
       { error: "Failed to fetch order stats" },
       { status: 500 }
     );
-  } finally {
-    await prisma.$disconnect();
   }
 }

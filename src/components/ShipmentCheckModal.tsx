@@ -94,7 +94,7 @@ export default function ShipmentCheckModal({
   const handleConfirmShipment = () => {
     if (orderId) {
       onConfirmShipment(orderId);
-      onClose();
+      // onClose()는 부모 컴포넌트에서 처리
     }
   };
 

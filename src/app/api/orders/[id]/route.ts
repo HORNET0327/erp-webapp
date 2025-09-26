@@ -1,8 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSessionUser } from "@/lib/auth";
-import { PrismaClient } from "@prisma/client";
-
-const prisma = new PrismaClient();
+import { prisma } from "@/lib/prisma";
 
 export async function GET(
   request: NextRequest,
@@ -41,16 +39,7 @@ export async function GET(
 
       // totalAmount가 비정상적으로 큰 값이면 주문 항목의 합계로 재계산
       if (correctedTotalAmount > 1000000000 || isNaN(correctedTotalAmount)) {
-        console.warn("Abnormal totalAmount detected, recalculating:", {
-          orderNo: salesOrder.orderNo,
-          originalTotalAmount: salesOrder.totalAmount,
-          convertedTotalAmount: correctedTotalAmount,
-          lines: salesOrder.lines?.map((line: any) => ({
-            qty: Number(line.qty) || 0,
-            unitPrice: Number(line.unitPrice) || 0,
-            amount: Number(line.amount) || 0,
-          })),
-        });
+        // Abnormal totalAmount detected, recalculating from lines
 
         correctedTotalAmount =
           salesOrder.lines?.reduce(
@@ -64,21 +53,10 @@ export async function GET(
           data: { totalAmount: correctedTotalAmount },
         });
 
-        console.log("Corrected totalAmount:", correctedTotalAmount);
+        // Corrected totalAmount calculated
       }
 
-      console.log("Sales order details:", {
-        id: salesOrder.id,
-        orderNo: salesOrder.orderNo,
-        originalTotalAmount: salesOrder.totalAmount,
-        correctedTotalAmount: correctedTotalAmount,
-        lines: salesOrder.lines?.map((line: any) => ({
-          qty: line.qty,
-          unitPrice: line.unitPrice,
-          amount: line.amount,
-          itemName: line.item?.name,
-        })),
-      });
+      // Sales order details processed
 
       // 수정된 totalAmount를 포함한 주문 정보 반환
       const correctedOrder = {
@@ -139,8 +117,6 @@ export async function GET(
       { error: "Failed to fetch order details" },
       { status: 500 }
     );
-  } finally {
-    await prisma.$disconnect();
   }
 }
 
@@ -212,7 +188,5 @@ export async function PATCH(
       { error: "Failed to update order status" },
       { status: 500 }
     );
-  } finally {
-    await prisma.$disconnect();
   }
 }

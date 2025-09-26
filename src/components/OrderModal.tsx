@@ -121,6 +121,25 @@ export default function OrderModal({
     }
   }, [isOpen, type]);
 
+  // Enter 키로 인한 실수 주문 생성 방지
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Enter" && isOpen) {
+        // 모달이 열려있을 때 Enter 키를 누르면 기본 동작 방지
+        event.preventDefault();
+        event.stopPropagation();
+      }
+    };
+
+    if (isOpen) {
+      document.addEventListener("keydown", handleKeyDown);
+    }
+
+    return () => {
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [isOpen]);
+
   // 외부 클릭 시 드롭다운 닫기
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -388,7 +407,23 @@ export default function OrderModal({
         });
       } else {
         const error = await response.json();
-        alert(`주문 생성 실패: ${error.error || "알 수 없는 오류"}`);
+        let errorMessage = `주문 생성 실패: ${
+          error.error || "알 수 없는 오류"
+        }`;
+
+        // 구체적인 검증 오류 메시지가 있는 경우
+        if (error.details) {
+          errorMessage = `입력 데이터 오류:\n${error.details}`;
+        } else if (
+          error.validationErrors &&
+          error.validationErrors.length > 0
+        ) {
+          errorMessage = `입력 데이터 오류:\n${error.validationErrors.join(
+            "\n"
+          )}`;
+        }
+
+        alert(errorMessage);
       }
     } catch (error) {
       console.error("Error creating order:", error);
@@ -723,10 +758,13 @@ export default function OrderModal({
                   color: "#000000",
                 }}
               >
-                <option value="pending">대기</option>
-                <option value="confirmed">확인</option>
-                <option value="shipped">배송</option>
-                <option value="delivered">완료</option>
+                <option value="pending">견적대기</option>
+                <option value="confirmed">수주확정</option>
+                <option value="ready_to_ship">출고대기</option>
+                <option value="shipping">배송중</option>
+                <option value="shipped">배송완료</option>
+                <option value="payment_pending">수금대기</option>
+                <option value="completed">수금완료</option>
                 <option value="cancelled">취소</option>
               </select>
             </div>
@@ -1059,6 +1097,11 @@ export default function OrderModal({
             <button
               type="submit"
               disabled={loading}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                }
+              }}
               style={{
                 padding: "10px 20px",
                 background: loading ? "#9ca3af" : "#3b82f6",

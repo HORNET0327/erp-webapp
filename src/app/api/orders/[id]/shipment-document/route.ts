@@ -2,6 +2,149 @@ import { NextRequest, NextResponse } from "next/server";
 import { getSessionUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
+export async function GET(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const sessionUser = await getSessionUser();
+    if (!sessionUser) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const { id } = await params;
+
+    // 주문 상세 정보 가져오기
+    const order = await prisma.salesOrder.findUnique({
+      where: { id },
+      include: {
+        customer: {
+          select: {
+            name: true,
+            email: true,
+            phone: true,
+            address: true,
+          },
+        },
+        salesperson: {
+          select: {
+            name: true,
+            email: true,
+          },
+        },
+        lines: {
+          include: {
+            item: {
+              select: {
+                id: true,
+                code: true,
+                name: true,
+                uom: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    if (!order) {
+      return NextResponse.json({ error: "Order not found" }, { status: 404 });
+    }
+
+    // 출고지시서가 생성되었는지 확인 (출고지시 이후 상태인지)
+    if (
+      ![
+        "ready_to_ship",
+        "shipping",
+        "shipped",
+        "payment_pending",
+        "completed",
+      ].includes(order.status)
+    ) {
+      return NextResponse.json(
+        { error: "Shipment document not available for this order status" },
+        { status: 400 }
+      );
+    }
+
+    // 저장된 배송정보 사용
+    const shippingInfo = {
+      shippingMethod: order.shippingMethod || "",
+      carrier: order.carrier || "",
+      paymentType: order.paymentType || "선불",
+      packagingMethod: order.packagingMethod || "",
+    };
+
+    // 출고지시서 번호 생성 (기존 번호가 있다면 사용, 없으면 새로 생성)
+    const today = new Date();
+    const dateStr = today.toISOString().slice(0, 10).replace(/-/g, "");
+
+    // 기존 출고지시서 번호 찾기
+    const existingLog = await prisma.activityLog.findFirst({
+      where: {
+        action: "SHIPMENT_DOCUMENT_CREATE",
+        entityId: id,
+      },
+      orderBy: {
+        timestamp: "desc",
+      },
+    });
+
+    let shipmentNo;
+    if (existingLog && existingLog.metadata) {
+      try {
+        const metadata = JSON.parse(existingLog.metadata);
+        shipmentNo = metadata.shipmentNo || `SH${dateStr}001`;
+      } catch (e) {
+        shipmentNo = `SH${dateStr}001`;
+      }
+    } else {
+      shipmentNo = `SH${dateStr}001`;
+    }
+
+    // 출고지시서 데이터 생성
+    const shipmentData = {
+      shipmentNo,
+      orderId: order.id,
+      orderNo: order.orderNo,
+      customerName: order.customer.name,
+      customerEmail: order.customer.email,
+      customerPhone: order.customer.phone,
+      customerAddress: order.customer.address,
+      salespersonName: order.salesperson?.name,
+      salespersonEmail: order.salesperson?.email,
+      orderDate: order.orderDate,
+      requiredDate: order.requiredDate,
+      totalAmount: Number(order.totalAmount),
+      notes: order.orderMemo || null,
+      shippingMethod: shippingInfo.shippingMethod,
+      carrier: shippingInfo.carrier,
+      paymentType: shippingInfo.paymentType,
+      packagingMethod: shippingInfo.packagingMethod,
+      items: order.lines.map((line) => ({
+        itemCode: line.item.code,
+        itemName: line.item.name,
+        qty: Number(line.qty),
+        uom: line.item.uom,
+        unitPrice: Number(line.unitPrice),
+        amount: Number(line.amount),
+      })),
+      createdAt: new Date(),
+    };
+
+    return NextResponse.json({
+      success: true,
+      shipmentData,
+    });
+  } catch (error) {
+    console.error("Error fetching shipment document:", error);
+    return NextResponse.json(
+      { error: "Internal server error" },
+      { status: 500 }
+    );
+  }
+}
+
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -74,24 +217,13 @@ export async function POST(
     const sequence = String(existingShipments + 1).padStart(3, "0");
     const shipmentNo = `SH${dateStr}${sequence}`;
 
-    // 저장된 배송정보 파싱
-    let shippingInfo = {
-      shippingMethod: "",
-      carrier: "",
-      paymentType: "선불",
-      packagingMethod: "",
+    // 저장된 배송정보 사용
+    const shippingInfo = {
+      shippingMethod: order.shippingMethod || "",
+      carrier: order.carrier || "",
+      paymentType: order.paymentType || "선불",
+      packagingMethod: order.packagingMethod || "",
     };
-
-    if (order.notes) {
-      try {
-        const parsedNotes = JSON.parse(order.notes);
-        if (parsedNotes.shippingInfo) {
-          shippingInfo = { ...shippingInfo, ...parsedNotes.shippingInfo };
-        }
-      } catch (e) {
-        // JSON 파싱 실패시 기본값 사용 (일반 텍스트인 경우)
-      }
-    }
 
     // 출고지시서 데이터 생성
     const shipmentData = {

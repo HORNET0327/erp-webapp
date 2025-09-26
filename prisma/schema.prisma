@@ -180,6 +180,7 @@ model Item {
   poLines     PurchaseOrderLine[]
   invTx       InventoryTransaction[]
   serials     SerialNumber[]
+  quotationItems QuotationItem[]
 }
 
 model Warehouse {
@@ -201,10 +202,15 @@ model SalesOrder {
   salespersonId String?
   orderDate     DateTime
   requiredDate  DateTime?
-  status        String   @db.VarChar(16) // OPEN, CLOSED, CANCELLED, PENDING
+  status        String   @db.VarChar(20) // pending, confirmed, ready_to_ship, shipping, shipped, payment_pending, completed, cancelled
   totalAmount   Decimal  @db.Decimal(18,2)
   notes         String?  @db.VarChar(500) // 주문 상세보기 비고
   orderMemo     String?  @db.VarChar(1000) // 수주등록 시 입력한 메모 (출고지시서 특이사항용)
+  // 배송 정보
+  shippingMethod String? @db.VarChar(100) // 배송방법 (택배, 직송, 화물 등)
+  carrier        String? @db.VarChar(100) // 운송업체
+  paymentType    String? @db.VarChar(20)  // 착불/선불
+  packagingMethod String? @db.VarChar(100) // 포장방법
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
@@ -236,7 +242,7 @@ model PurchaseOrder {
   buyerId    String?
   orderDate  DateTime
   requiredDate DateTime?
-  status     String   @db.VarChar(16) // OPEN, CLOSED, CANCELLED, PENDING
+  status     String   @db.VarChar(20) // pending, confirmed, ready_to_ship, shipping, shipped, payment_pending, completed, cancelled
   totalAmount Decimal @db.Decimal(18,2)
   notes      String?  @db.VarChar(500)
   createdAt  DateTime @default(now())
@@ -345,8 +351,7 @@ model Quotation {
   taxAmount        Decimal  @db.Decimal(18,2)
   totalAmount      Decimal  @db.Decimal(18,2)
   
-  // 주문 항목 정보 (JSON으로 저장)
-  orderItems       String?  @db.VarChar(4000) // JSON string for order items
+  // 주문 항목 정보는 별도 테이블로 관리
   
   // 메타데이터
   createdAt        DateTime @default(now())
@@ -360,6 +365,7 @@ model Quotation {
   authorUser       User       @relation("Quotations", fields: [authorId], references: [id], onDelete: NoAction)
   versions         QuotationVersion[]
   emails           QuotationEmail[]
+  items            QuotationItem[]
   
   @@index([orderId])
   @@index([customerId])
@@ -385,10 +391,8 @@ model QuotationVersion {
   taxRate          Decimal? @db.Decimal(5,2)
   taxAmount        Decimal? @db.Decimal(18,2)
   totalAmount      Decimal? @db.Decimal(18,2)
-  orderItems       String?  @db.VarChar(4000) // JSON string for order items
   
-  // 변경된 필드들 (JSON 형태로 저장)
-  changes          String   @db.VarChar(2000) // JSON string
+  // 변경된 필드들은 별도 테이블로 관리
   
   // 메타데이터
   createdAt        DateTime @default(now())
@@ -397,10 +401,44 @@ model QuotationVersion {
   // 관계
   quotation        Quotation @relation(fields: [quotationId], references: [id], onDelete: Cascade)
   createdByUser    User?     @relation("QuotationVersions", fields: [createdBy], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  changes          QuotationVersionChange[]
   
   @@unique([quotationId, version])
   @@index([quotationId])
   @@index([createdAt])
+}
+
+// 견적서 항목
+model QuotationItem {
+  id           String   @id @default(cuid())
+  quotationId  String
+  itemId       String
+  qty          Decimal  @db.Decimal(18,2)
+  unitPrice    Decimal  @db.Decimal(18,2)
+  amount       Decimal  @db.Decimal(18,2)
+  createdAt    DateTime @default(now())
+
+  quotation    Quotation @relation(fields: [quotationId], references: [id], onDelete: Cascade)
+  item         Item      @relation(fields: [itemId], references: [id], onDelete: NoAction)
+
+  @@index([quotationId])
+  @@index([itemId])
+}
+
+// 견적서 버전 변경사항
+model QuotationVersionChange {
+  id                String   @id @default(cuid())
+  quotationVersionId String
+  fieldName         String   @db.VarChar(100) // 변경된 필드명
+  oldValue          String?  @db.VarChar(1000) // 이전 값
+  newValue          String?  @db.VarChar(1000) // 새 값
+  changeType        String   @db.VarChar(20) // ADD, UPDATE, DELETE
+  createdAt         DateTime @default(now())
+
+  quotationVersion  QuotationVersion @relation(fields: [quotationVersionId], references: [id], onDelete: Cascade)
+
+  @@index([quotationVersionId])
+  @@index([fieldName])
 }
 
 model QuotationEmail {

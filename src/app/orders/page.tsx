@@ -27,7 +27,13 @@ interface Order {
 interface OrderStats {
   totalOrders: number;
   pendingOrders: number;
+  confirmedOrders: number;
+  readyToShipOrders: number;
+  shippingOrders: number;
+  shippedOrders: number;
+  paymentPendingOrders: number;
   completedOrders: number;
+  cancelledOrders: number;
   totalValue: number;
   monthlyOrders: number;
   monthlyValue: number;
@@ -38,20 +44,40 @@ function OrderCard({
   value,
   delta,
   accent,
+  onClick,
+  clickable = false,
 }: {
   title: string;
   value: string;
   delta?: string;
   accent?: string;
+  onClick?: () => void;
+  clickable?: boolean;
 }) {
   return (
     <div
+      onClick={onClick}
       style={{
         background: "#ffffff",
         border: "1px solid #e5e7eb",
         borderRadius: 8,
         padding: "12px",
         boxShadow: "0 1px 2px rgba(0,0,0,0.04)",
+        cursor: clickable ? "pointer" : "default",
+        transition: clickable ? "all 0.2s ease" : "none",
+        transform: clickable ? "scale(1)" : "none",
+      }}
+      onMouseEnter={(e) => {
+        if (clickable) {
+          e.currentTarget.style.transform = "scale(1.02)";
+          e.currentTarget.style.boxShadow = "0 4px 12px 0 rgba(0, 0, 0, 0.15)";
+        }
+      }}
+      onMouseLeave={(e) => {
+        if (clickable) {
+          e.currentTarget.style.transform = "scale(1)";
+          e.currentTarget.style.boxShadow = "0 1px 2px rgba(0,0,0,0.04)";
+        }
       }}
     >
       <div
@@ -104,19 +130,21 @@ function StatusBadge({ status }: { status: string }) {
   const getStatusStyle = (status: string) => {
     switch (status.toLowerCase()) {
       case "pending":
-        return { background: "#fef3c7", color: "#92400e", border: "#f59e0b" };
-      case "quoted":
-        return { background: "#f0fdf4", color: "#166534", border: "#22c55e" };
+        return { background: "#fef3c7", color: "#92400e", border: "#f59e0b" }; // 견적대기
       case "confirmed":
-        return { background: "#e0e7ff", color: "#3730a3", border: "#6366f1" };
-      case "approved":
-        return { background: "#dbeafe", color: "#1e40af", border: "#3b82f6" };
-      case "in_progress":
-        return { background: "#f0fdf4", color: "#166534", border: "#22c55e" };
+        return { background: "#e0e7ff", color: "#3730a3", border: "#6366f1" }; // 수주확정
+      case "ready_to_ship":
+        return { background: "#fef3c7", color: "#92400e", border: "#f59e0b" }; // 출고대기
+      case "shipping":
+        return { background: "#dbeafe", color: "#1e40af", border: "#3b82f6" }; // 배송중
+      case "shipped":
+        return { background: "#f0fdf4", color: "#166534", border: "#22c55e" }; // 배송완료
+      case "payment_pending":
+        return { background: "#fef3c7", color: "#92400e", border: "#f59e0b" }; // 수금대기
       case "completed":
-        return { background: "#f0f9ff", color: "#1e40af", border: "#0ea5e9" };
+        return { background: "#f0f9ff", color: "#1e40af", border: "#0ea5e9" }; // 수금완료
       case "cancelled":
-        return { background: "#fef2f2", color: "#dc2626", border: "#ef4444" };
+        return { background: "#fef2f2", color: "#dc2626", border: "#ef4444" }; // 취소
       default:
         return { background: "#f3f4f6", color: "#000000", border: "#d1d5db" };
     }
@@ -126,11 +154,12 @@ function StatusBadge({ status }: { status: string }) {
   const statusText =
     {
       pending: "견적대기",
-      quoted: "견적완료",
       confirmed: "수주확정",
-      approved: "승인",
-      in_progress: "진행중",
-      completed: "완료",
+      ready_to_ship: "출고대기",
+      shipping: "배송중",
+      shipped: "배송완료",
+      payment_pending: "수금대기",
+      completed: "수금완료",
       cancelled: "취소",
     }[status.toLowerCase()] || status;
 
@@ -274,14 +303,9 @@ export default function OrdersPage() {
   };
 
   const handleCreateShipment = async (order: any) => {
-    // 견적대기 상태인 경우 처리 중단
-    if (order.status === "pending") {
-      alert("견적대기 상태인 주문은 출고지시를 생성할 수 없습니다.");
-      return;
-    }
-    // 취소 상태인 경우 처리 중단
-    if (order.status === "cancelled") {
-      alert("취소된 주문은 출고지시를 생성할 수 없습니다.");
+    // 수주확정 상태가 아닌 경우 처리 중단
+    if (order.status !== "confirmed") {
+      alert("수주확정 상태인 주문만 출고지시를 생성할 수 있습니다.");
       return;
     }
 
@@ -292,22 +316,41 @@ export default function OrdersPage() {
 
   const handleConfirmShipment = async (orderId: string) => {
     try {
-      // 출고지시 API 호출
-      console.log("출고지시 생성:", orderId);
+      // 주문 정보를 먼저 가져오기
+      const orderResponse = await fetch(`/api/orders/${orderId}`, {
+        credentials: "include",
+      });
 
-      // 활동 로그 기록
-      await fetch(`/api/orders/${orderId}/log-activity`, {
+      if (!orderResponse.ok) {
+        throw new Error("주문 정보를 가져올 수 없습니다.");
+      }
+
+      const orderData = await orderResponse.json();
+      const order = orderData.order;
+
+      // 출고지시 생성 및 상태 변경
+      const response = await fetch(`/api/orders/${orderId}/change-status`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          action: "SHIPMENT_CREATE",
-          description: `출고지시를 생성했습니다: ${selectedOrder?.orderNo}`,
-          metadata: { orderNo: selectedOrder?.orderNo },
+          action: "CREATE_SHIPMENT",
+          description: `출고지시를 생성했습니다: ${order.orderNo}`,
+          metadata: { orderNo: order.orderNo },
         }),
       });
 
-      alert("출고지시가 생성되었습니다.");
-      fetchOrders(); // 주문 목록 새로고침
+      if (response.ok) {
+        alert("출고지시가 생성되었습니다. 상태가 출고대기로 변경되었습니다.");
+        fetchOrders(); // 주문 목록 새로고침
+        setIsShipmentCheckModalOpen(false); // 모달 닫기
+      } else {
+        const error = await response.json();
+        let errorMessage = `오류: ${error.error}`;
+        if (error.details) {
+          errorMessage += `\n상세: ${error.details}`;
+        }
+        alert(errorMessage);
+      }
     } catch (error) {
       console.error("출고지시 생성 오류:", error);
       alert("출고지시 생성 중 오류가 발생했습니다.");
@@ -315,9 +358,9 @@ export default function OrdersPage() {
   };
 
   const handleCreateOrder = async (order: any) => {
-    // 취소 상태인 경우 처리 중단
-    if (order.status === "cancelled") {
-      alert("취소된 주문은 수주등록을 할 수 없습니다.");
+    // 견적대기가 아닌 경우 처리 중단
+    if (order.status !== "pending") {
+      alert("견적대기 상태인 주문만 수주등록을 할 수 있습니다.");
       return;
     }
 
@@ -327,35 +370,36 @@ export default function OrdersPage() {
   };
 
   const handleProcessShipment = async (order: any) => {
-    // 견적대기 상태인 경우 처리 중단
-    if (order.status === "pending") {
-      alert("견적대기 상태인 주문은 출고처리를 할 수 없습니다.");
-      return;
-    }
-    // 취소 상태인 경우 처리 중단
-    if (order.status === "cancelled") {
-      alert("취소된 주문은 출고처리를 할 수 없습니다.");
+    // 출고대기 상태가 아닌 경우 처리 중단
+    if (order.status !== "ready_to_ship") {
+      alert("출고대기 상태인 주문만 출고처리를 할 수 있습니다.");
       return;
     }
 
     // 출고 처리 기능 구현
     if (confirm(`주문 ${order.orderNo}에 대한 출고를 처리하시겠습니까?`)) {
       try {
-        // TODO: 출고 처리 API 호출
-        console.log("출고 처리:", order);
-
-        // 활동 로그 기록
-        await fetch(`/api/orders/${order.id}/log-activity`, {
+        const response = await fetch(`/api/orders/${order.id}/change-status`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            action: "SHIPMENT_PROCESS",
+            action: "PROCESS_SHIPMENT",
             description: `출고처리를 완료했습니다: ${order.orderNo}`,
             metadata: { orderNo: order.orderNo },
           }),
         });
 
-        alert("출고가 처리되었습니다.");
+        if (response.ok) {
+          alert("출고가 처리되었습니다. 상태가 배송중으로 변경되었습니다.");
+          fetchOrders(); // 주문 목록 새로고침
+        } else {
+          const error = await response.json();
+          let errorMessage = `오류: ${error.error}`;
+          if (error.details) {
+            errorMessage += `\n상세: ${error.details}`;
+          }
+          alert(errorMessage);
+        }
       } catch (error) {
         console.error("출고 처리 오류:", error);
         alert("출고 처리 중 오류가 발생했습니다.");
@@ -402,36 +446,75 @@ export default function OrdersPage() {
     }
   };
 
-  const handleRegisterPayment = async (order: any) => {
-    // 견적대기 상태인 경우 처리 중단
-    if (order.status === "pending") {
-      alert("견적대기 상태인 주문은 수금등록을 할 수 없습니다.");
+  const handleCompleteShipping = async (order: any) => {
+    // 배송중 상태가 아닌 경우 처리 중단
+    if (order.status !== "shipping") {
+      alert("배송중 상태인 주문만 배송완료 처리를 할 수 있습니다.");
       return;
     }
-    // 취소 상태인 경우 처리 중단
-    if (order.status === "cancelled") {
-      alert("취소된 주문은 수금등록을 할 수 없습니다.");
+
+    // 배송완료 기능 구현
+    if (confirm(`주문 ${order.orderNo}에 대한 배송을 완료하시겠습니까?`)) {
+      try {
+        const response = await fetch(`/api/orders/${order.id}/change-status`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            action: "COMPLETE_SHIPPING",
+            description: `배송을 완료했습니다: ${order.orderNo}`,
+            metadata: { orderNo: order.orderNo },
+          }),
+        });
+
+        if (response.ok) {
+          alert("배송이 완료되었습니다. 상태가 수금대기로 변경되었습니다.");
+          fetchOrders(); // 주문 목록 새로고침
+        } else {
+          const error = await response.json();
+          let errorMessage = `오류: ${error.error}`;
+          if (error.details) {
+            errorMessage += `\n상세: ${error.details}`;
+          }
+          alert(errorMessage);
+        }
+      } catch (error) {
+        console.error("배송완료 처리 오류:", error);
+        alert("배송완료 처리 중 오류가 발생했습니다.");
+      }
+    }
+  };
+
+  const handleRegisterPayment = async (order: any) => {
+    // 수금대기 상태가 아닌 경우 처리 중단
+    if (order.status !== "payment_pending") {
+      alert("수금대기 상태인 주문만 수금등록을 할 수 있습니다.");
       return;
     }
 
     // 수금등록 기능 구현
     if (confirm(`주문 ${order.orderNo}에 대한 수금을 등록하시겠습니까?`)) {
       try {
-        // TODO: 수금등록 API 호출
-        console.log("수금등록:", order);
-
-        // 활동 로그 기록
-        await fetch(`/api/orders/${order.id}/log-activity`, {
+        const response = await fetch(`/api/orders/${order.id}/change-status`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            action: "PAYMENT_REGISTER",
+            action: "REGISTER_PAYMENT",
             description: `수금등록을 완료했습니다: ${order.orderNo}`,
             metadata: { orderNo: order.orderNo },
           }),
         });
 
-        alert("수금이 등록되었습니다.");
+        if (response.ok) {
+          alert("수금이 등록되었습니다. 주문이 완료되었습니다.");
+          fetchOrders(); // 주문 목록 새로고침
+        } else {
+          const error = await response.json();
+          let errorMessage = `오류: ${error.error}`;
+          if (error.details) {
+            errorMessage += `\n상세: ${error.details}`;
+          }
+          alert(errorMessage);
+        }
       } catch (error) {
         console.error("수금등록 오류:", error);
         alert("수금등록 중 오류가 발생했습니다.");
@@ -442,6 +525,19 @@ export default function OrdersPage() {
   const handleViewHistory = (order: any) => {
     setSelectedOrder(order);
     setIsHistoryModalOpen(true);
+  };
+
+  // 상태별 필터링 함수
+  const handleStatusFilter = (status: string) => {
+    setStatusFilter(status);
+    // 필터가 적용되면 검색어는 초기화
+    setSearchTerm("");
+  };
+
+  // 전체 필터 초기화
+  const handleClearFilters = () => {
+    setStatusFilter("all");
+    setSearchTerm("");
   };
 
   const handleQuotationModalClose = () => {
@@ -543,7 +639,7 @@ export default function OrdersPage() {
             <div
               style={{
                 display: "grid",
-                gridTemplateColumns: "repeat(5, 1fr)",
+                gridTemplateColumns: "repeat(9, 1fr)",
                 gap: "8px",
               }}
             >
@@ -551,27 +647,64 @@ export default function OrdersPage() {
                 title="전체 주문"
                 value={`${stats.totalOrders}건`}
                 accent="#3b82f6"
+                onClick={() => handleStatusFilter("all")}
+                clickable={true}
               />
               <OrderCard
-                title="대기중"
+                title="견적대기"
                 value={`${stats.pendingOrders}건`}
                 accent="#f59e0b"
+                onClick={() => handleStatusFilter("pending")}
+                clickable={true}
               />
               <OrderCard
-                title="완료"
-                value={`${stats.completedOrders}건`}
+                title="수주확정"
+                value={`${stats.confirmedOrders}건`}
+                accent="#6366f1"
+                onClick={() => handleStatusFilter("confirmed")}
+                clickable={true}
+              />
+              <OrderCard
+                title="출고대기"
+                value={`${stats.readyToShipOrders}건`}
+                accent="#f59e0b"
+                onClick={() => handleStatusFilter("ready_to_ship")}
+                clickable={true}
+              />
+              <OrderCard
+                title="배송중"
+                value={`${stats.shippingOrders}건`}
+                accent="#3b82f6"
+                onClick={() => handleStatusFilter("shipping")}
+                clickable={true}
+              />
+              <OrderCard
+                title="배송완료"
+                value={`${stats.shippedOrders}건`}
                 accent="#22c55e"
+                onClick={() => handleStatusFilter("shipped")}
+                clickable={true}
               />
               <OrderCard
-                title="총 금액"
-                value={`₩${stats.totalValue.toLocaleString()}`}
-                accent="#8b5cf6"
+                title="수금대기"
+                value={`${stats.paymentPendingOrders}건`}
+                accent="#f59e0b"
+                onClick={() => handleStatusFilter("payment_pending")}
+                clickable={true}
               />
               <OrderCard
-                title="이번 달 주문"
-                value={`${stats.monthlyOrders}건`}
-                delta={`₩${stats.monthlyValue.toLocaleString()}`}
+                title="수금완료"
+                value={`${stats.completedOrders}건`}
+                accent="#0ea5e9"
+                onClick={() => handleStatusFilter("completed")}
+                clickable={true}
+              />
+              <OrderCard
+                title="취소"
+                value={`${stats.cancelledOrders}건`}
                 accent="#ef4444"
+                onClick={() => handleStatusFilter("cancelled")}
+                clickable={true}
               />
             </div>
           </div>
@@ -619,13 +752,30 @@ export default function OrdersPage() {
           >
             <option value="all">전체 상태</option>
             <option value="pending">견적대기</option>
-            <option value="quoted">견적완료</option>
             <option value="confirmed">수주확정</option>
-            <option value="approved">승인</option>
-            <option value="in_progress">진행중</option>
-            <option value="completed">완료</option>
+            <option value="ready_to_ship">출고대기</option>
+            <option value="shipping">배송중</option>
+            <option value="shipped">배송완료</option>
+            <option value="payment_pending">수금대기</option>
+            <option value="completed">수금완료</option>
             <option value="cancelled">취소</option>
           </select>
+          <button
+            onClick={handleClearFilters}
+            style={{
+              padding: "8px 16px",
+              background: "#6b7280",
+              color: "#ffffff",
+              border: "none",
+              borderRadius: "6px",
+              fontSize: "13px",
+              fontWeight: "500",
+              cursor: "pointer",
+              whiteSpace: "nowrap",
+            }}
+          >
+            필터 초기화
+          </button>
           <button
             onClick={handleNewOrder}
             style={{
@@ -642,6 +792,80 @@ export default function OrdersPage() {
             + 새 주문
           </button>
         </div>
+
+        {/* Current Filter Status */}
+        {(statusFilter !== "all" || searchTerm) && (
+          <div
+            style={{
+              background: "#f3f4f6",
+              border: "1px solid #d1d5db",
+              borderRadius: "6px",
+              padding: "12px",
+              marginBottom: "16px",
+              display: "flex",
+              alignItems: "center",
+              gap: "8px",
+              flexWrap: "wrap",
+            }}
+          >
+            <span
+              style={{ fontSize: "14px", color: "#374151", fontWeight: "500" }}
+            >
+              현재 필터:
+            </span>
+            {statusFilter !== "all" && (
+              <span
+                style={{
+                  background: "#3b82f6",
+                  color: "#ffffff",
+                  padding: "4px 8px",
+                  borderRadius: "4px",
+                  fontSize: "12px",
+                  fontWeight: "500",
+                }}
+              >
+                상태:{" "}
+                {{
+                  pending: "견적대기",
+                  confirmed: "수주확정",
+                  ready_to_ship: "출고대기",
+                  shipping: "배송중",
+                  shipped: "배송완료",
+                  payment_pending: "수금대기",
+                  completed: "수금완료",
+                  cancelled: "취소",
+                }[statusFilter] || statusFilter}
+              </span>
+            )}
+            {searchTerm && (
+              <span
+                style={{
+                  background: "#10b981",
+                  color: "#ffffff",
+                  padding: "4px 8px",
+                  borderRadius: "4px",
+                  fontSize: "12px",
+                  fontWeight: "500",
+                }}
+              >
+                검색: "{searchTerm}"
+              </span>
+            )}
+            <button
+              onClick={handleClearFilters}
+              style={{
+                background: "none",
+                border: "none",
+                color: "#6b7280",
+                fontSize: "12px",
+                cursor: "pointer",
+                textDecoration: "underline",
+              }}
+            >
+              필터 초기화
+            </button>
+          </div>
+        )}
 
         {/* Orders Table */}
         <div
@@ -934,75 +1158,84 @@ export default function OrdersPage() {
                               </button>
                               <button
                                 onClick={() => handleCreateShipment(order)}
-                                disabled={
-                                  order.status === "pending" ||
-                                  order.status === "cancelled"
-                                }
+                                disabled={order.status !== "confirmed"}
                                 style={{
                                   padding: "6px 12px",
                                   background:
-                                    order.status === "pending" ||
-                                    order.status === "cancelled"
+                                    order.status !== "confirmed"
                                       ? "#d1d5db"
                                       : "#f59e0b",
                                   color:
-                                    order.status === "pending" ||
-                                    order.status === "cancelled"
+                                    order.status !== "confirmed"
                                       ? "#9ca3af"
                                       : "#ffffff",
                                   border: "none",
                                   borderRadius: "4px",
                                   fontSize: "12px",
                                   cursor:
-                                    order.status === "pending" ||
-                                    order.status === "cancelled"
+                                    order.status !== "confirmed"
                                       ? "not-allowed"
                                       : "pointer",
                                   whiteSpace: "nowrap",
                                   opacity:
-                                    order.status === "pending" ||
-                                    order.status === "cancelled"
-                                      ? 0.6
-                                      : 1,
+                                    order.status !== "confirmed" ? 0.6 : 1,
                                 }}
                               >
                                 출고지시
                               </button>
                               <button
                                 onClick={() => handleProcessShipment(order)}
-                                disabled={
-                                  order.status === "pending" ||
-                                  order.status === "cancelled"
-                                }
+                                disabled={order.status !== "ready_to_ship"}
                                 style={{
                                   padding: "6px 12px",
                                   background:
-                                    order.status === "pending" ||
-                                    order.status === "cancelled"
+                                    order.status !== "ready_to_ship"
                                       ? "#d1d5db"
                                       : "#8b5cf6",
                                   color:
-                                    order.status === "pending" ||
-                                    order.status === "cancelled"
+                                    order.status !== "ready_to_ship"
                                       ? "#9ca3af"
                                       : "#ffffff",
                                   border: "none",
                                   borderRadius: "4px",
                                   fontSize: "12px",
                                   cursor:
-                                    order.status === "pending" ||
-                                    order.status === "cancelled"
+                                    order.status !== "ready_to_ship"
                                       ? "not-allowed"
                                       : "pointer",
                                   whiteSpace: "nowrap",
                                   opacity:
-                                    order.status === "pending" ||
-                                    order.status === "cancelled"
-                                      ? 0.6
-                                      : 1,
+                                    order.status !== "ready_to_ship" ? 0.6 : 1,
                                 }}
                               >
                                 출고처리
+                              </button>
+                              <button
+                                onClick={() => handleCompleteShipping(order)}
+                                disabled={order.status !== "shipping"}
+                                style={{
+                                  padding: "6px 12px",
+                                  background:
+                                    order.status !== "shipping"
+                                      ? "#d1d5db"
+                                      : "#22c55e",
+                                  color:
+                                    order.status !== "shipping"
+                                      ? "#9ca3af"
+                                      : "#ffffff",
+                                  border: "none",
+                                  borderRadius: "4px",
+                                  fontSize: "12px",
+                                  cursor:
+                                    order.status !== "shipping"
+                                      ? "not-allowed"
+                                      : "pointer",
+                                  whiteSpace: "nowrap",
+                                  opacity:
+                                    order.status !== "shipping" ? 0.6 : 1,
+                                }}
+                              >
+                                배송완료
                               </button>
                               <button
                                 onClick={() => handleIssueTaxInvoice(order)}
@@ -1042,34 +1275,27 @@ export default function OrdersPage() {
                               </button>
                               <button
                                 onClick={() => handleRegisterPayment(order)}
-                                disabled={
-                                  order.status === "pending" ||
-                                  order.status === "cancelled"
-                                }
+                                disabled={order.status !== "payment_pending"}
                                 style={{
                                   padding: "6px 12px",
                                   background:
-                                    order.status === "pending" ||
-                                    order.status === "cancelled"
+                                    order.status !== "payment_pending"
                                       ? "#d1d5db"
                                       : "#06b6d4",
                                   color:
-                                    order.status === "pending" ||
-                                    order.status === "cancelled"
+                                    order.status !== "payment_pending"
                                       ? "#9ca3af"
                                       : "#ffffff",
                                   border: "none",
                                   borderRadius: "4px",
                                   fontSize: "12px",
                                   cursor:
-                                    order.status === "pending" ||
-                                    order.status === "cancelled"
+                                    order.status !== "payment_pending"
                                       ? "not-allowed"
                                       : "pointer",
                                   whiteSpace: "nowrap",
                                   opacity:
-                                    order.status === "pending" ||
-                                    order.status === "cancelled"
+                                    order.status !== "payment_pending"
                                       ? 0.6
                                       : 1,
                                 }}

@@ -43,7 +43,313 @@ export default function ShipmentDocumentViewer({
   };
 
   const handlePrint = () => {
-    window.print();
+    if (!pdfRef.current) return;
+
+    // 새로운 창을 열어서 인쇄용 HTML 생성
+    const printWindow = window.open("", "_blank");
+    if (!printWindow) {
+      alert("팝업이 차단되었습니다. 팝업을 허용해주세요.");
+      return;
+    }
+
+    // 인쇄용 HTML 생성
+    const printHTML = `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <meta charset="utf-8">
+          <title>출고지시서</title>
+          <style>
+            body {
+              margin: 0;
+              padding: 8mm;
+              font-family: Arial, sans-serif;
+              font-size: 12px;
+              line-height: 1.4;
+              color: #000000;
+              background: white;
+            }
+            .document-header {
+              text-align: center;
+              margin-bottom: 32px;
+              border-bottom: 1px solid #e5e7eb;
+              padding-bottom: 16px;
+            }
+            .document-title {
+              font-size: 20px;
+              font-weight: bold;
+              color: #111827;
+              margin: 0 0 8px 0;
+            }
+            .document-number {
+              margin: 0;
+              color: #6b7280;
+            }
+            .info-section {
+              display: grid;
+              grid-template-columns: 1fr 1fr;
+              gap: 24px;
+              margin-bottom: 24px;
+            }
+            .section-title {
+              font-size: 16px;
+              font-weight: 600;
+              color: #111827;
+              margin: 0 0 12px 0;
+              border-bottom: 1px solid #d1d5db;
+              padding-bottom: 4px;
+            }
+            .info-content {
+              line-height: 1.6;
+            }
+            .info-content p {
+              margin: 4px 0;
+              color: #000000;
+            }
+            .info-content .label {
+              font-weight: 500;
+            }
+            .shipping-info {
+              margin-bottom: 24px;
+            }
+            .shipping-grid {
+              display: grid;
+              grid-template-columns: 1fr 1fr;
+              gap: 16px;
+            }
+            .shipping-item label {
+              display: block;
+              font-size: 14px;
+              font-weight: 500;
+              color: #000000;
+              margin-bottom: 4px;
+            }
+            .shipping-item p {
+              margin: 4px 0;
+              color: #000000;
+              min-height: 20px;
+            }
+            .items-section {
+              margin-bottom: 24px;
+            }
+            .items-table {
+              width: 100%;
+              border-collapse: collapse;
+              border: 1px solid #d1d5db;
+            }
+            .items-table th {
+              padding: 12px;
+              text-align: left;
+              font-weight: 600;
+              color: #374151;
+              border: 1px solid #d1d5db;
+              background-color: #f9fafb;
+            }
+            .items-table td {
+              padding: 12px;
+              border: 1px solid #d1d5db;
+              color: #000000;
+            }
+            .items-table .text-right {
+              text-align: right;
+            }
+            .items-table tfoot td {
+              background-color: #f9fafb;
+              font-weight: 600;
+            }
+            .notes-section {
+              margin-bottom: 24px;
+            }
+            .notes-content {
+              padding: 12px;
+              background-color: #f9fafb;
+              border: 1px solid #d1d5db;
+              border-radius: 4px;
+              white-space: pre-wrap;
+              color: #000000;
+            }
+            .signature-section {
+              display: grid;
+              grid-template-columns: 1fr 1fr;
+              gap: 24px;
+              margin-top: 32px;
+              border-top: 1px solid #e5e7eb;
+              padding-top: 16px;
+            }
+            .signature-item p {
+              margin: 0 0 40px 0;
+              font-weight: 500;
+              color: #000000;
+            }
+            .signature-date {
+              margin: 0;
+              font-size: 12px;
+              color: #000000;
+            }
+            @page {
+              margin: 8mm;
+              size: A4;
+            }
+            @media print {
+              body {
+                margin: 0;
+                padding: 8mm;
+              }
+            }
+          </style>
+        </head>
+        <body>
+          <div class="document-header">
+            <h1 class="document-title">출고지시서</h1>
+            <p class="document-number">출고지시서 번호: ${
+              shipmentData.shipmentNo
+            }</p>
+          </div>
+
+          <div class="info-section">
+            <div>
+              <h3 class="section-title">발주처 정보</h3>
+              <div class="info-content">
+                <p class="label">${shipmentData.customerName}</p>
+                ${
+                  shipmentData.customerEmail
+                    ? `<p>이메일: ${shipmentData.customerEmail}</p>`
+                    : ""
+                }
+                ${
+                  shipmentData.customerPhone
+                    ? `<p>전화: ${shipmentData.customerPhone}</p>`
+                    : ""
+                }
+                ${
+                  shipmentData.customerAddress
+                    ? `<p>주소: ${shipmentData.customerAddress}</p>`
+                    : ""
+                }
+              </div>
+            </div>
+            <div>
+              <h3 class="section-title">주문 정보</h3>
+              <div class="info-content">
+                <p><span class="label">주문번호:</span> ${
+                  shipmentData.orderNo
+                }</p>
+                <p><span class="label">주문일:</span> ${formatDate(
+                  shipmentData.orderDate
+                )}</p>
+                <p><span class="label">납기일:</span> ${
+                  shipmentData.requiredDate
+                    ? formatDate(shipmentData.requiredDate)
+                    : "미정"
+                }</p>
+                <p><span class="label">담당자:</span> ${
+                  shipmentData.salespersonName || "미지정"
+                }</p>
+              </div>
+            </div>
+          </div>
+
+          <div class="shipping-info">
+            <h3 class="section-title">배송 정보</h3>
+            <div class="shipping-grid">
+              <div class="shipping-item">
+                <label>배송방법</label>
+                <p>${editableData?.shippingMethod || "미입력"}</p>
+              </div>
+              <div class="shipping-item">
+                <label>운송업체</label>
+                <p>${editableData?.carrier || "미입력"}</p>
+              </div>
+              <div class="shipping-item">
+                <label>착불/선불</label>
+                <p>${editableData?.paymentType || "선불"}</p>
+              </div>
+              <div class="shipping-item">
+                <label>포장방법</label>
+                <p>${editableData?.packagingMethod || "미입력"}</p>
+              </div>
+            </div>
+          </div>
+
+          <div class="items-section">
+            <h3 class="section-title">출고 품목</h3>
+            <table class="items-table">
+              <thead>
+                <tr>
+                  <th>품목코드</th>
+                  <th>품목명</th>
+                  <th class="text-right">수량</th>
+                  <th class="text-right">단가</th>
+                  <th class="text-right">금액</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${shipmentData.items
+                  .map(
+                    (item: any) => `
+                  <tr>
+                    <td>${item.itemCode}</td>
+                    <td>${item.itemName}</td>
+                    <td class="text-right">${item.qty.toLocaleString()}${
+                      item.uom ? ` ${item.uom}` : ""
+                    }</td>
+                    <td class="text-right">${formatCurrency(
+                      item.unitPrice
+                    )}</td>
+                    <td class="text-right">${formatCurrency(item.amount)}</td>
+                  </tr>
+                `
+                  )
+                  .join("")}
+              </tbody>
+              <tfoot>
+                <tr>
+                  <td colspan="4" class="text-right">총 금액</td>
+                  <td class="text-right">${formatCurrency(
+                    shipmentData.totalAmount
+                  )}</td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+
+          ${
+            shipmentData.notes
+              ? `
+            <div class="notes-section">
+              <h3 class="section-title">특이사항</h3>
+              <div class="notes-content">${shipmentData.notes}</div>
+            </div>
+          `
+              : ""
+          }
+
+          <div class="signature-section">
+            <div>
+              <p>출고 담당자: ________________</p>
+              <p class="signature-date">날짜: ${formatDate(
+                new Date().toISOString()
+              )}</p>
+            </div>
+            <div>
+              <p>승인자: ________________</p>
+            </div>
+          </div>
+        </body>
+      </html>
+    `;
+
+    printWindow.document.write(printHTML);
+    printWindow.document.close();
+
+    // 인쇄 실행
+    printWindow.focus();
+
+    // 약간의 지연 후 인쇄 (렌더링 완료 대기)
+    setTimeout(() => {
+      printWindow.print();
+      printWindow.close();
+    }, 100);
   };
 
   const handleDownloadPDF = () => {
@@ -143,6 +449,7 @@ export default function ShipmentDocumentViewer({
 
   return (
     <div
+      className="shipment-document-container"
       style={{
         position: "fixed",
         top: 0,
@@ -157,6 +464,7 @@ export default function ShipmentDocumentViewer({
       }}
     >
       <div
+        className="shipment-document-content"
         style={{
           backgroundColor: "white",
           borderRadius: "8px",
@@ -167,7 +475,6 @@ export default function ShipmentDocumentViewer({
           overflow: "auto",
           boxShadow: "0 10px 25px rgba(0, 0, 0, 0.1)",
         }}
-        className="shipment-document"
       >
         {/* 헤더 */}
         <div
@@ -294,6 +601,7 @@ export default function ShipmentDocumentViewer({
         {/* 출고지시서 내용 */}
         <div
           ref={pdfRef}
+          className="shipment-document-print"
           style={{
             fontFamily: "Arial, sans-serif",
             fontSize: "12px",
@@ -857,30 +1165,6 @@ export default function ShipmentDocumentViewer({
           </div>
         </div>
       </div>
-
-      <style jsx global>{`
-        @media print {
-          body * {
-            visibility: hidden;
-          }
-          .shipment-document,
-          .shipment-document * {
-            visibility: visible;
-          }
-          .shipment-document {
-            position: absolute;
-            left: 0;
-            top: 0;
-            width: 100%;
-            box-shadow: none;
-            border-radius: 0;
-            padding: 20px;
-          }
-          .shipment-document button {
-            display: none;
-          }
-        }
-      `}</style>
     </div>
   );
 }

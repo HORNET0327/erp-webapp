@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import ShipmentDocumentViewer from "./ShipmentDocumentViewer";
 
 interface OrderDetailModalProps {
   isOpen: boolean;
@@ -24,6 +25,9 @@ export default function OrderDetailModal({
   const [editedData, setEditedData] = useState<any>(null);
   const [items, setItems] = useState<any[]>([]);
   const [remarks, setRemarks] = useState("");
+  const [showShipmentDocument, setShowShipmentDocument] = useState(false);
+  const [shipmentData, setShipmentData] = useState<any>(null);
+  const [loadingShipment, setLoadingShipment] = useState(false);
 
   useEffect(() => {
     if (isOpen && order) {
@@ -129,6 +133,38 @@ export default function OrderDetailModal({
     onClose();
   };
 
+  const handleViewShipmentDocument = async () => {
+    if (!order?.id) return;
+
+    setLoadingShipment(true);
+    try {
+      const response = await fetch(
+        `/api/orders/${order.id}/shipment-document`,
+        {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          credentials: "include",
+        }
+      );
+
+      if (response.ok) {
+        const result = await response.json();
+        setShipmentData(result.shipmentData);
+        setShowShipmentDocument(true);
+      } else {
+        const errorData = await response.json();
+        alert(errorData.error || "출고지시서를 불러올 수 없습니다.");
+      }
+    } catch (err) {
+      console.error("Error fetching shipment document:", err);
+      alert("출고지시서를 불러오는 중 오류가 발생했습니다.");
+    } finally {
+      setLoadingShipment(false);
+    }
+  };
+
   const handleSave = async () => {
     if (!editedData) return;
 
@@ -186,11 +222,12 @@ export default function OrderDetailModal({
       const getStatusDisplayName = (status: string): string => {
         const statusMap: { [key: string]: string } = {
           pending: "견적대기",
-          quoted: "견적완료",
           confirmed: "수주확정",
-          approved: "승인",
-          in_progress: "진행중",
-          completed: "완료",
+          ready_to_ship: "출고대기",
+          shipping: "배송중",
+          shipped: "배송완료",
+          payment_pending: "수금대기",
+          completed: "수금완료",
           cancelled: "취소",
         };
         return statusMap[status.toLowerCase()] || status;
@@ -528,21 +565,50 @@ export default function OrderDetailModal({
           </h2>
           <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
             {!isEditing ? (
-              <button
-                onClick={handleEdit}
-                style={{
-                  padding: "8px 16px",
-                  background: "#3b82f6",
-                  color: "#ffffff",
-                  border: "none",
-                  borderRadius: "6px",
-                  fontSize: "14px",
-                  fontWeight: "500",
-                  cursor: "pointer",
-                }}
-              >
-                편집
-              </button>
+              <>
+                <button
+                  onClick={handleEdit}
+                  style={{
+                    padding: "8px 16px",
+                    background: "#3b82f6",
+                    color: "#ffffff",
+                    border: "none",
+                    borderRadius: "6px",
+                    fontSize: "14px",
+                    fontWeight: "500",
+                    cursor: "pointer",
+                  }}
+                >
+                  편집
+                </button>
+                {/* 출고지시 이후 상태에서만 출고지시서 확인 버튼 표시 */}
+                {type === "sales" &&
+                  orderDetails &&
+                  [
+                    "ready_to_ship",
+                    "shipping",
+                    "shipped",
+                    "payment_pending",
+                    "completed",
+                  ].includes(orderDetails.status) && (
+                    <button
+                      onClick={handleViewShipmentDocument}
+                      disabled={loadingShipment}
+                      style={{
+                        padding: "8px 16px",
+                        background: loadingShipment ? "#9ca3af" : "#8b5cf6",
+                        color: "#ffffff",
+                        border: "none",
+                        borderRadius: "6px",
+                        fontSize: "14px",
+                        fontWeight: "500",
+                        cursor: loadingShipment ? "not-allowed" : "pointer",
+                      }}
+                    >
+                      {loadingShipment ? "로딩 중..." : "출고지시서 보기"}
+                    </button>
+                  )}
+              </>
             ) : (
               <>
                 <button
@@ -731,11 +797,12 @@ export default function OrderDetailModal({
                         }}
                       >
                         <option value="pending">견적대기</option>
-                        <option value="quoted">견적완료</option>
                         <option value="confirmed">수주확정</option>
-                        <option value="approved">승인</option>
-                        <option value="in_progress">진행중</option>
-                        <option value="completed">완료</option>
+                        <option value="ready_to_ship">출고대기</option>
+                        <option value="shipping">배송중</option>
+                        <option value="shipped">배송완료</option>
+                        <option value="payment_pending">수금대기</option>
+                        <option value="completed">수금완료</option>
                         <option value="cancelled">취소</option>
                       </select>
                     ) : (
@@ -750,8 +817,14 @@ export default function OrderDetailModal({
                               ? "#fef3c7"
                               : orderData.status === "confirmed"
                               ? "#e0e7ff"
-                              : orderData.status === "in_progress"
+                              : orderData.status === "ready_to_ship"
+                              ? "#fef3c7"
+                              : orderData.status === "shipping"
                               ? "#dbeafe"
+                              : orderData.status === "shipped"
+                              ? "#d1fae5"
+                              : orderData.status === "payment_pending"
+                              ? "#fef3c7"
                               : orderData.status === "completed"
                               ? "#d1fae5"
                               : orderData.status === "cancelled"
@@ -762,8 +835,14 @@ export default function OrderDetailModal({
                               ? "#92400e"
                               : orderData.status === "confirmed"
                               ? "#3730a3"
-                              : orderData.status === "in_progress"
+                              : orderData.status === "ready_to_ship"
+                              ? "#92400e"
+                              : orderData.status === "shipping"
                               ? "#1e40af"
+                              : orderData.status === "shipped"
+                              ? "#065f46"
+                              : orderData.status === "payment_pending"
+                              ? "#92400e"
                               : orderData.status === "completed"
                               ? "#065f46"
                               : orderData.status === "cancelled"
@@ -773,14 +852,18 @@ export default function OrderDetailModal({
                       >
                         {orderData.status === "pending"
                           ? "견적대기"
-                          : orderData.status === "quoted"
-                          ? "견적완료"
                           : orderData.status === "confirmed"
                           ? "수주확정"
-                          : orderData.status === "in_progress"
-                          ? "진행중"
+                          : orderData.status === "ready_to_ship"
+                          ? "출고대기"
+                          : orderData.status === "shipping"
+                          ? "배송중"
+                          : orderData.status === "shipped"
+                          ? "배송완료"
+                          : orderData.status === "payment_pending"
+                          ? "수금대기"
                           : orderData.status === "completed"
-                          ? "완료"
+                          ? "수금완료"
                           : orderData.status === "cancelled"
                           ? "취소"
                           : orderData.status}
@@ -1397,6 +1480,13 @@ export default function OrderDetailModal({
           </button>
         </div>
       </div>
+
+      {/* Shipment Document Viewer */}
+      <ShipmentDocumentViewer
+        isOpen={showShipmentDocument}
+        onClose={() => setShowShipmentDocument(false)}
+        shipmentData={shipmentData}
+      />
     </div>
   );
 }

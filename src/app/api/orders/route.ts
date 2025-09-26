@@ -1,9 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSessionUser } from "@/lib/auth";
-import { PrismaClient } from "@prisma/client";
+import { prisma } from "@/lib/prisma";
 import { isLeadUserOrAbove } from "@/lib/permissions";
-
-const prisma = new PrismaClient();
 
 export async function GET(request: NextRequest) {
   try {
@@ -96,21 +94,11 @@ export async function GET(request: NextRequest) {
 
       // 비정상적으로 큰 값이면 0으로 설정
       if (totalAmount > 1000000000 || isNaN(totalAmount)) {
-        console.warn("Abnormal totalAmount in order list:", {
-          orderNo: order.orderNo || order.poNo,
-          originalTotalAmount: order.totalAmount,
-          convertedTotalAmount: totalAmount,
-          type: typeof order.totalAmount,
-        });
+        // Abnormal totalAmount detected and corrected
         totalAmount = 0;
       }
 
-      console.log("Order totalAmount:", {
-        orderNo: order.orderNo || order.poNo,
-        originalTotalAmount: order.totalAmount,
-        convertedTotalAmount: totalAmount,
-        type: typeof order.totalAmount,
-      });
+      // Debug logging removed for performance
 
       return {
         id: order.id,
@@ -134,7 +122,5 @@ export async function GET(request: NextRequest) {
       { error: "Failed to fetch orders" },
       { status: 500 }
     );
-  } finally {
-    await prisma.$disconnect();
   }
 }

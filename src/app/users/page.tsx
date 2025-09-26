@@ -829,8 +829,9 @@ export default function UsersPage() {
                 <div
                   style={{
                     display: "flex",
-                    flexDirection: "column",
-                    gap: "8px",
+                    flexDirection: "row",
+                    gap: "12px",
+                    flexWrap: "wrap",
                   }}
                 >
                   {roles.map((role) => (

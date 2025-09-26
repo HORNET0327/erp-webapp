@@ -13,11 +13,16 @@ async function main() {
   const adminPassword = "pwd123!@#";
 
   // Roles
-  const [adminRole, userRole] = await Promise.all([
+  const [adminRole, leadUserRole, userRole] = await Promise.all([
     prisma.role.upsert({
       where: { name: "ADMIN" },
       update: {},
       create: { name: "ADMIN", label: "Administrator" },
+    }),
+    prisma.role.upsert({
+      where: { name: "LEAD_USER" },
+      update: {},
+      create: { name: "LEAD_USER", label: "Lead User" },
     }),
     prisma.role.upsert({
       where: { name: "USER" },
@@ -60,7 +65,7 @@ async function main() {
   const updatedByUser = await prisma.userInfo.updateMany({
     where: { userId: adminUser.id },
     data: {
-      departmentCode: "HQ",
+      departmentCode: "MASTER",
       jobTitle: "Administrator",
       mobile: "010-0000-0000",
       gender: "OTHER",
@@ -72,7 +77,7 @@ async function main() {
       where: { employeeCode: "EMP-0001" },
       data: {
         userId: adminUser.id,
-        departmentCode: "HQ",
+        departmentCode: "MASTER",
         jobTitle: "Administrator",
         mobile: "010-0000-0000",
         gender: "OTHER",
@@ -84,7 +89,7 @@ async function main() {
         data: {
           userId: adminUser.id,
           employeeCode: "EMP-0001",
-          departmentCode: "HQ",
+          departmentCode: "MASTER",
           jobTitle: "Administrator",
           mobile: "010-0000-0000",
           gender: "OTHER",

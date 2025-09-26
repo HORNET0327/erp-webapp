@@ -68,6 +68,45 @@ export async function POST(request: NextRequest) {
       const { customerId, orderDate, status, totalAmount, notes, lines } =
         orderData;
 
+      // 입력 데이터 검증
+      const validationErrors = [];
+
+      if (!customerId) {
+        validationErrors.push("고객을 선택해주세요.");
+      }
+
+      if (!orderDate) {
+        validationErrors.push("주문일을 입력해주세요.");
+      }
+
+      if (!lines || lines.length === 0) {
+        validationErrors.push("주문 항목을 최소 1개 이상 추가해주세요.");
+      } else {
+        // 각 주문 항목 검증
+        lines.forEach((line: any, index: number) => {
+          if (!line.itemId) {
+            validationErrors.push(`항목 ${index + 1}: 품목을 선택해주세요.`);
+          }
+          if (!line.qty || line.qty <= 0) {
+            validationErrors.push(`항목 ${index + 1}: 수량을 입력해주세요.`);
+          }
+          if (!line.unitPrice || line.unitPrice <= 0) {
+            validationErrors.push(`항목 ${index + 1}: 단가를 입력해주세요.`);
+          }
+        });
+      }
+
+      if (validationErrors.length > 0) {
+        return NextResponse.json(
+          {
+            error: "입력 데이터 오류",
+            details: validationErrors.join(" "),
+            validationErrors,
+          },
+          { status: 400 }
+        );
+      }
+
       // totalAmount를 안전하게 숫자로 변환
       const safeTotalAmount = Number(totalAmount) || 0;
       console.log("Total amount conversion:", {
@@ -146,6 +185,45 @@ export async function POST(request: NextRequest) {
     } else {
       const { vendorId, orderDate, status, totalAmount, notes, lines } =
         orderData;
+
+      // 입력 데이터 검증
+      const validationErrors = [];
+
+      if (!vendorId) {
+        validationErrors.push("공급업체를 선택해주세요.");
+      }
+
+      if (!orderDate) {
+        validationErrors.push("주문일을 입력해주세요.");
+      }
+
+      if (!lines || lines.length === 0) {
+        validationErrors.push("주문 항목을 최소 1개 이상 추가해주세요.");
+      } else {
+        // 각 주문 항목 검증
+        lines.forEach((line: any, index: number) => {
+          if (!line.itemId) {
+            validationErrors.push(`항목 ${index + 1}: 품목을 선택해주세요.`);
+          }
+          if (!line.qty || line.qty <= 0) {
+            validationErrors.push(`항목 ${index + 1}: 수량을 입력해주세요.`);
+          }
+          if (!line.unitPrice || line.unitPrice <= 0) {
+            validationErrors.push(`항목 ${index + 1}: 단가를 입력해주세요.`);
+          }
+        });
+      }
+
+      if (validationErrors.length > 0) {
+        return NextResponse.json(
+          {
+            error: "입력 데이터 오류",
+            details: validationErrors.join(" "),
+            validationErrors,
+          },
+          { status: 400 }
+        );
+      }
 
       // totalAmount를 안전하게 숫자로 변환
       const safeTotalAmount = Number(totalAmount) || 0;

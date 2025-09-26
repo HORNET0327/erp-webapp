@@ -40,14 +40,10 @@ export async function PUT(
     const updatedOrder = await prisma.salesOrder.update({
       where: { id },
       data: {
-        notes: JSON.stringify({
-          shippingInfo: {
-            shippingMethod: shippingMethod || "",
-            carrier: carrier || "",
-            paymentType: paymentType || "선불",
-            packagingMethod: packagingMethod || "",
-          },
-        }),
+        shippingMethod: shippingMethod || "",
+        carrier: carrier || "",
+        paymentType: paymentType || "선불",
+        packagingMethod: packagingMethod || "",
       },
     });
 
