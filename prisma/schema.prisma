@@ -1,0 +1,514 @@
+// Prisma schema for ERP - Sensor/Cable Distribution (P&F, WAGO, MURR)
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlserver"
+  url      = env("DATABASE_URL")
+}
+
+// Authentication & User Management
+model User {
+  id            String    @id @default(cuid())
+  username      String?   @db.VarChar(64)
+  email         String    @unique
+  name          String?
+  passwordHash  String
+  isActive      Boolean   @default(true)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  sessions      Session[]
+  userRoles     UserRole[]
+  userInfo      UserInfo?
+  salesOrders   SalesOrder[] @relation("SalesOrders")
+  purchaseOrders PurchaseOrder[] @relation("PurchaseOrders")
+  purchaseRequests PurchaseRequest[] @relation("PurchaseRequests")
+  purchaseRequestApprovals PurchaseRequest[] @relation("PurchaseRequestApprovals")
+  quotations    Quotation[] @relation("Quotations")
+  quotationVersions QuotationVersion[] @relation("QuotationVersions")
+  activityLogs  ActivityLog[]
+}
+
+model Role {
+  id        String     @id @default(cuid())
+  name      String     @unique
+  label     String?
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+
+  userRoles UserRole[]
+}
+
+model UserRole {
+  userId String
+  roleId String
+
+  user   User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role   Role @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  @@id([userId, roleId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  userId       String
+  sessionToken String   @unique
+  expiresAt    DateTime
+  createdAt    DateTime @default(now())
+
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model UserInfo {
+  id             String    @id @default(cuid())
+  userId         String    @unique
+  user           User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  employeeCode   String?   @unique
+  departmentCode String?
+  jobTitle       String?
+
+  phone          String?
+  mobile         String?
+  email          String?
+
+  // 이메일 설정
+  smtpHost       String?
+  smtpPort       String?
+  smtpSecure     String?
+  smtpUser       String?
+  smtpPass       String?
+  smtpFromName   String?
+
+  addressLine1   String?
+  addressLine2   String?
+  city           String?
+  state          String?
+  postalCode     String?
+  country        String?
+
+  hireDate       DateTime?
+  resignDate     DateTime?
+  birthDate      DateTime?
+  gender         String?   @db.VarChar(16)
+
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  @@map("User_Info")
+}
+
+// Master Data
+model Brand {
+  id        String   @id @default(cuid())
+  code      String   @unique @db.VarChar(32)
+  name      String   @db.VarChar(100)
+  country   String?  @db.VarChar(50)
+  website   String?  @db.VarChar(200)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  items     Item[]
+}
+
+model Category {
+  id        String   @id @default(cuid())
+  code      String   @unique @db.VarChar(32)
+  name      String   @db.VarChar(100)
+  parentId  String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  parent    Category?  @relation("CategoryHierarchy", fields: [parentId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  children  Category[] @relation("CategoryHierarchy")
+  items     Item[]
+}
+
+model Customer {
+  id           String   @id @default(cuid())
+  code         String   @unique @db.VarChar(32)
+  name         String   @db.VarChar(200)
+  contactPerson String? @db.VarChar(100)
+  email        String?  @db.VarChar(200)
+  phone        String?  @db.VarChar(50)
+  address      String?  @db.VarChar(500)
+  notes        String?  @db.VarChar(1000)
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  salesOrders SalesOrder[]
+  quotations  Quotation[]
+}
+
+model Vendor {
+  id           String   @id @default(cuid())
+  code         String   @unique @db.VarChar(32)
+  name         String   @db.VarChar(200)
+  contactPerson String? @db.VarChar(100)
+  email        String?  @db.VarChar(200)
+  phone        String?  @db.VarChar(50)
+  address      String?  @db.VarChar(500)
+  notes        String?  @db.VarChar(1000)
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  purchaseOrders PurchaseOrder[]
+  purchaseRequests PurchaseRequest[]
+}
+
+model Item {
+  id          String   @id @default(cuid())
+  code        String   @unique @db.VarChar(64)
+  name        String   @db.VarChar(200)
+  uom         String?  @db.VarChar(32)
+  categoryId  String?
+  brandId     String?
+  model       String?  @db.VarChar(100)
+  spec        String?  @db.VarChar(500)
+  hasSerial   Boolean  @default(false)
+  minStock    Decimal? @db.Decimal(18,2)
+  basePrice   Decimal? @db.Decimal(18,2)
+  leadTime    Int?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  category    Category? @relation(fields: [categoryId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  brand       Brand?    @relation(fields: [brandId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  soLines     SalesOrderLine[]
+  poLines     PurchaseOrderLine[]
+  prLines     PurchaseRequestLine[]
+  invTx       InventoryTransaction[]
+  serials     SerialNumber[]
+  quotationItems QuotationItem[]
+}
+
+model Warehouse {
+  id        String   @id @default(cuid())
+  code      String   @unique @db.VarChar(32)
+  name      String   @db.VarChar(200)
+  address   String?  @db.VarChar(500)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  invTx     InventoryTransaction[]
+}
+
+// Sales
+model SalesOrder {
+  id            String   @id @default(cuid())
+  orderNo       String   @unique @db.VarChar(32)
+  customerId    String
+  salespersonId String?
+  orderDate     DateTime
+  requiredDate  DateTime?
+  status        String   @db.VarChar(20) // pending, confirmed, ready_to_ship, shipping, shipped, payment_pending, completed, cancelled
+  totalAmount   Decimal  @db.Decimal(18,2)
+  notes         String?  @db.VarChar(500) // 주문 상세보기 비고
+  orderMemo     String?  @db.VarChar(1000) // 수주등록 시 입력한 메모 (출고지시서 특이사항용)
+  // 배송 정보
+  shippingMethod String? @db.VarChar(100) // 배송방법 (택배, 직송, 화물 등)
+  carrier        String? @db.VarChar(100) // 운송업체
+  paymentType    String? @db.VarChar(20)  // 착불/선불
+  packagingMethod String? @db.VarChar(100) // 포장방법
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  customer      Customer @relation(fields: [customerId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  salesperson   User?    @relation("SalesOrders", fields: [salespersonId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  lines         SalesOrderLine[]
+  quotations    Quotation[]
+}
+
+model SalesOrderLine {
+  id           String   @id @default(cuid())
+  salesOrderId String
+  itemId       String
+  qty          Decimal  @db.Decimal(18,2)
+  unitPrice    Decimal  @db.Decimal(18,2)
+  amount       Decimal  @db.Decimal(18,2)
+
+  salesOrder   SalesOrder @relation(fields: [salesOrderId], references: [id], onDelete: Cascade)
+  item         Item       @relation(fields: [itemId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([salesOrderId])
+}
+
+// Purchase
+model PurchaseOrder {
+  id         String   @id @default(cuid())
+  poNo       String   @unique @db.VarChar(32)
+  vendorId   String
+  buyerId    String?
+  orderDate  DateTime
+  requiredDate DateTime?
+  status     String   @db.VarChar(20) // pending, confirmed, ready_to_ship, shipping, shipped, payment_pending, completed, cancelled
+  totalAmount Decimal @db.Decimal(18,2)
+  notes      String?  @db.VarChar(500)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  vendor     Vendor @relation(fields: [vendorId], references: [id])
+  buyer      User?  @relation("PurchaseOrders", fields: [buyerId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  lines      PurchaseOrderLine[]
+  convertedFrom PurchaseRequest? @relation("PurchaseRequestConversion")
+}
+
+model PurchaseOrderLine {
+  id              String   @id @default(cuid())
+  purchaseOrderId String
+  itemId          String
+  qty             Decimal  @db.Decimal(18,2)
+  unitCost        Decimal  @db.Decimal(18,2)
+  amount          Decimal  @db.Decimal(18,2)
+
+  purchaseOrder   PurchaseOrder @relation(fields: [purchaseOrderId], references: [id], onDelete: Cascade)
+  item            Item          @relation(fields: [itemId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([purchaseOrderId])
+}
+
+// Purchase Request
+model PurchaseRequest {
+  id           String   @id @default(cuid())
+  requestNo    String   @unique @db.VarChar(32)
+  vendorId     String
+  requesterId  String
+  approverId   String?
+  requestDate  DateTime
+  requiredDate DateTime?
+  status       String   @db.VarChar(20) // pending, approved, rejected, converted
+  totalAmount  Decimal  @db.Decimal(18,2)
+  notes        String?  @db.VarChar(500)
+  reason       String?  @db.VarChar(1000) // 구매요청 사유
+  approvedAt   DateTime?
+  rejectedAt   DateTime?
+  convertedAt  DateTime? // 구매주문으로 변환된 시점
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  vendor       Vendor @relation(fields: [vendorId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  requester    User   @relation("PurchaseRequests", fields: [requesterId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  approver     User?  @relation("PurchaseRequestApprovals", fields: [approverId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  lines        PurchaseRequestLine[]
+  convertedTo  PurchaseOrder? @relation("PurchaseRequestConversion", fields: [id], references: [id])
+
+  @@index([vendorId])
+  @@index([requesterId])
+  @@index([status])
+  @@index([requestDate])
+}
+
+model PurchaseRequestLine {
+  id                String   @id @default(cuid())
+  purchaseRequestId String
+  itemId            String
+  qty               Decimal  @db.Decimal(18,2)
+  estimatedCost     Decimal? @db.Decimal(18,2) // 예상 단가
+  amount            Decimal  @db.Decimal(18,2)
+  reason            String?  @db.VarChar(500) // 품목별 구매 사유
+
+  purchaseRequest   PurchaseRequest @relation(fields: [purchaseRequestId], references: [id], onDelete: Cascade)
+  item              Item            @relation(fields: [itemId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([purchaseRequestId])
+  @@index([itemId])
+}
+
+// Inventory
+model InventoryTransaction {
+  id          String   @id @default(cuid())
+  itemId      String
+  warehouseId String
+  txDate      DateTime
+  txType      String   @db.VarChar(16) // RECEIPT, ISSUE, ADJUST, TRANSFER
+  qty         Decimal  @db.Decimal(18,2)
+  unitCost    Decimal  @db.Decimal(18,2)
+  serialNo    String?  @db.VarChar(100)
+  lotNo       String?  @db.VarChar(50)
+  expiryDate  DateTime?
+  reference   String?  @db.VarChar(100)
+  notes       String?  @db.VarChar(500)
+
+  item        Item      @relation(fields: [itemId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  warehouse   Warehouse @relation(fields: [warehouseId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([itemId, warehouseId])
+  @@index([serialNo])
+  @@index([lotNo])
+}
+
+model SerialNumber {
+  id          String   @id @default(cuid())
+  itemId      String
+  serialNo    String   @unique @db.VarChar(100)
+  status      String   @db.VarChar(16) // AVAILABLE, SOLD, RETURNED, DEFECTIVE
+  soldDate    DateTime?
+  soldTo      String?  @db.VarChar(100)
+  warrantyExp DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  item        Item @relation(fields: [itemId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([itemId])
+  @@index([status])
+}
+
+// Activity Log
+model ActivityLog {
+  id          String   @id @default(cuid())
+  userId      String
+  action      String   @db.VarChar(50) // CREATE, UPDATE, DELETE, LOGIN, LOGOUT, etc.
+  entityType  String   @db.VarChar(50) // ORDER, ITEM, CUSTOMER, VENDOR, etc.
+  entityId    String?  @db.VarChar(50)
+  description String   @db.VarChar(500)
+  metadata    String?  @db.VarChar(1000) // JSON string for additional data
+  timestamp   DateTime @default(now())
+
+  user        User @relation(fields: [userId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([userId])
+  @@index([timestamp])
+  @@index([action])
+  @@index([entityType])
+}
+
+// Quotation Management
+model Quotation {
+  id               String   @id @default(cuid())
+  quotationNo      String   @unique @db.VarChar(32)
+  orderId          String
+  customerId       String
+  authorId         String
+  version          Int      @default(1)
+  status           String   @db.VarChar(16) // DRAFT, SENT, ACCEPTED, REJECTED, EXPIRED
+  
+  // 견적서 기본 정보
+  quotationName    String?  @db.VarChar(200)
+  paymentDeadline  String?  @db.VarChar(100)
+  validityPeriod   String?  @db.VarChar(100)
+  deliveryLocation String?  @db.VarChar(500)
+  paymentTerms     String?  @db.VarChar(200)
+  author           String?  @db.VarChar(100)
+  remarks          String?  @db.VarChar(1000)
+  
+  // 금액 정보
+  subtotal         Decimal  @db.Decimal(18,2)
+  taxRate          Decimal  @db.Decimal(5,2) @default(10.00)
+  taxAmount        Decimal  @db.Decimal(18,2)
+  totalAmount      Decimal  @db.Decimal(18,2)
+  
+  // 주문 항목 정보는 별도 테이블로 관리
+  
+  // 메타데이터
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+  sentAt           DateTime?
+  expiresAt        DateTime?
+  
+  // 관계
+  order            SalesOrder @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  customer         Customer   @relation(fields: [customerId], references: [id], onDelete: NoAction)
+  authorUser       User       @relation("Quotations", fields: [authorId], references: [id], onDelete: NoAction)
+  versions         QuotationVersion[]
+  emails           QuotationEmail[]
+  items            QuotationItem[]
+  
+  @@index([orderId])
+  @@index([customerId])
+  @@index([status])
+  @@index([createdAt])
+}
+
+model QuotationVersion {
+  id               String   @id @default(cuid())
+  quotationId      String
+  version          Int
+  status           String   @db.VarChar(16) // DRAFT, SENT, ACCEPTED, REJECTED, EXPIRED
+  
+  // 견적서 데이터 (전체 저장)
+  quotationName    String?  @db.VarChar(200)
+  paymentDeadline  String?  @db.VarChar(100)
+  validityPeriod   String?  @db.VarChar(100)
+  deliveryLocation String?  @db.VarChar(200)
+  paymentTerms     String?  @db.VarChar(200)
+  author           String?  @db.VarChar(100)
+  remarks          String?  @db.VarChar(1000)
+  subtotal         Decimal? @db.Decimal(18,2)
+  taxRate          Decimal? @db.Decimal(5,2)
+  taxAmount        Decimal? @db.Decimal(18,2)
+  totalAmount      Decimal? @db.Decimal(18,2)
+  
+  // 변경된 필드들은 별도 테이블로 관리
+  
+  // 메타데이터
+  createdAt        DateTime @default(now())
+  createdBy        String
+  
+  // 관계
+  quotation        Quotation @relation(fields: [quotationId], references: [id], onDelete: Cascade)
+  createdByUser    User?     @relation("QuotationVersions", fields: [createdBy], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  changes          QuotationVersionChange[]
+  
+  @@unique([quotationId, version])
+  @@index([quotationId])
+  @@index([createdAt])
+}
+
+// 견적서 항목
+model QuotationItem {
+  id           String   @id @default(cuid())
+  quotationId  String
+  itemId       String
+  qty          Decimal  @db.Decimal(18,2)
+  unitPrice    Decimal  @db.Decimal(18,2)
+  amount       Decimal  @db.Decimal(18,2)
+  createdAt    DateTime @default(now())
+
+  quotation    Quotation @relation(fields: [quotationId], references: [id], onDelete: Cascade)
+  item         Item      @relation(fields: [itemId], references: [id], onDelete: NoAction)
+
+  @@index([quotationId])
+  @@index([itemId])
+}
+
+// 견적서 버전 변경사항
+model QuotationVersionChange {
+  id                String   @id @default(cuid())
+  quotationVersionId String
+  fieldName         String   @db.VarChar(100) // 변경된 필드명
+  oldValue          String?  @db.VarChar(1000) // 이전 값
+  newValue          String?  @db.VarChar(1000) // 새 값
+  changeType        String   @db.VarChar(20) // ADD, UPDATE, DELETE
+  createdAt         DateTime @default(now())
+
+  quotationVersion  QuotationVersion @relation(fields: [quotationVersionId], references: [id], onDelete: Cascade)
+
+  @@index([quotationVersionId])
+  @@index([fieldName])
+}
+
+model QuotationEmail {
+  id               String   @id @default(cuid())
+  quotationId      String
+  sentTo           String   @db.VarChar(200)
+  sentToName       String?  @db.VarChar(100)
+  subject          String?  @db.VarChar(200)
+  message          String?  @db.VarChar(1000)
+  status           String   @db.VarChar(16) // SENT, DELIVERED, FAILED, BOUNCED
+  sentAt           DateTime @default(now())
+  deliveredAt      DateTime?
+  errorMessage     String?  @db.VarChar(500)
+  
+  // 관계
+  quotation        Quotation @relation(fields: [quotationId], references: [id], onDelete: Cascade)
+  
+  @@index([quotationId])
+  @@index([sentAt])
+  @@index([status])
+}
