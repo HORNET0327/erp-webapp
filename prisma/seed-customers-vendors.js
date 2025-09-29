@@ -58,6 +58,56 @@ async function main() {
         notes: "반도체 제조업체, 클린룸 환경, 고품질 요구",
         isActive: true,
       },
+      {
+        code: "CUST-006",
+        name: "포스코",
+        contactPerson: "김철강",
+        email: "steel.kim@posco.com",
+        phone: "02-3457-8901",
+        address: "경기도 포항시 남구 대잠동 1",
+        notes: "철강 제조업체, 대규모 프로젝트, 장기 계약 선호",
+        isActive: true,
+      },
+      {
+        code: "CUST-007",
+        name: "한국전력공사",
+        contactPerson: "이전력",
+        email: "power.lee@kepco.co.kr",
+        phone: "02-3456-7890",
+        address: "전라남도 나주시 빛가람동 55",
+        notes: "전력 공급업체, 안전 기준 엄격, 정부 계약",
+        isActive: true,
+      },
+      {
+        code: "CUST-008",
+        name: "두산에너빌리티",
+        contactPerson: "박에너지",
+        email: "energy.park@doosan.com",
+        phone: "02-4567-8901",
+        address: "서울특별시 중구 을지로 281",
+        notes: "에너지 솔루션 전문, 해외 진출 활발, 기술 혁신 중시",
+        isActive: true,
+      },
+      {
+        code: "CUST-009",
+        name: "한화시스템",
+        contactPerson: "정시스템",
+        email: "system.jung@hanwha.com",
+        phone: "02-5678-9012",
+        address: "서울특별시 송파구 법원로 9길 26",
+        notes: "방산 및 우주 시스템, 보안 요구사항 높음, 정밀 부품",
+        isActive: true,
+      },
+      {
+        code: "CUST-010",
+        name: "한국가스공사",
+        contactPerson: "최가스",
+        email: "gas.choi@kogas.or.kr",
+        phone: "02-6789-0123",
+        address: "대전광역시 서구 둔산대로 124",
+        notes: "가스 공급 인프라, 안전 관리 중요, 정기 점검 필수",
+        isActive: true,
+      },
     ];
 
     // 공급업체 데이터 생성
@@ -112,6 +162,56 @@ async function main() {
         notes: "국내 제조업체, 경쟁력 있는 가격, 빠른 대응",
         isActive: true,
       },
+      {
+        code: "VEND-006",
+        name: "일본 센서테크",
+        contactPerson: "야마다 타케시",
+        email: "yamada@sensortech.jp",
+        phone: "+81-3-1234-5678",
+        address: "도쿄도 시부야구 센서로 123",
+        notes: "일본 센서 전문업체, 고정밀 센서, 기술 지원 우수",
+        isActive: true,
+      },
+      {
+        code: "VEND-007",
+        name: "독일 인더스트리얼",
+        contactPerson: "Hans Mueller",
+        email: "hans.mueller@industrial-de.com",
+        phone: "+49-30-9876-5432",
+        address: "Berlin, Germany Industrial Str. 456",
+        notes: "독일 산업용 부품 전문, EU 인증, 고품질 보장",
+        isActive: true,
+      },
+      {
+        code: "VEND-008",
+        name: "중국 전자부품",
+        contactPerson: "왕리",
+        email: "wang.li@china-electronics.cn",
+        phone: "+86-21-8765-4321",
+        address: "상하이시 푸동신구 전자로 789",
+        notes: "중국 대형 제조업체, 대량 생산, 가격 경쟁력",
+        isActive: true,
+      },
+      {
+        code: "VEND-009",
+        name: "미국 테크솔루션",
+        contactPerson: "John Smith",
+        email: "john.smith@techsolutions.us",
+        phone: "+1-555-123-4567",
+        address: "Silicon Valley, CA Tech Blvd 321",
+        notes: "미국 첨단 기술, R&D 중심, 혁신 제품",
+        isActive: true,
+      },
+      {
+        code: "VEND-010",
+        name: "한국 정밀기계",
+        contactPerson: "김정밀",
+        email: "precision.kim@korea-machinery.co.kr",
+        phone: "02-1111-3333",
+        address: "경기도 안양시 동안구 정밀로 456",
+        notes: "국내 정밀기계 전문, 맞춤 제작, 기술력 우수",
+        isActive: true,
+      },
     ];
 
     // 기존 데이터 삭제
@@ -154,35 +254,3 @@ main().catch((e) => {
   console.error(e);
   process.exit(1);
 });
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
