@@ -103,10 +103,6 @@ export async function GET(
           subtotal: quotationVersion.subtotal,
           taxAmount: quotationVersion.taxAmount,
           totalAmount: quotationVersion.totalAmount,
-          // 저장된 주문 항목 사용
-          orderItems: quotationVersion.orderItems
-            ? JSON.parse(quotationVersion.orderItems)
-            : [],
         };
 
         console.log("API - 반환할 quotation:", {
@@ -150,6 +146,11 @@ export async function GET(
         },
         customer: true,
         authorUser: true,
+        items: {
+          include: {
+            item: true,
+          },
+        },
         versions: {
           orderBy: { version: "desc" },
         },
@@ -181,21 +182,12 @@ export async function GET(
         subtotal: latestVersion.subtotal,
         taxAmount: latestVersion.taxAmount,
         totalAmount: latestVersion.totalAmount,
-        // 저장된 주문 항목 사용
-        orderItems: latestVersion.orderItems
-          ? JSON.parse(latestVersion.orderItems)
-          : [],
       };
       return NextResponse.json({ quotation: quotationWithVersionData });
     }
 
-    // 기본 견적서 데이터에 저장된 주문 항목 추가
-    const quotationWithOrderItems = {
-      ...quotation,
-      orderItems: quotation.orderItems ? JSON.parse(quotation.orderItems) : [],
-    };
-
-    return NextResponse.json({ quotation: quotationWithOrderItems });
+    // 기본 견적서 데이터 반환
+    return NextResponse.json({ quotation });
   } catch (error) {
     console.error("견적서 조회 오류:", error);
     return NextResponse.json(
@@ -260,17 +252,15 @@ export async function PUT(
     const taxAmount = subtotal * (taxRate / 100);
     const totalAmount = subtotal + taxAmount;
 
-    // 주문 항목을 JSON으로 저장
-    const orderItems = JSON.stringify(
+    // 주문 항목들을 QuotationItem 테이블에 저장할 데이터 준비
+    const quotationItems =
       existingQuotation.order?.lines?.map((line: any) => ({
+        quotationId: id,
         itemId: line.itemId,
-        itemName: line.item?.name || "",
-        itemCode: line.item?.code || "",
         qty: Number(line.qty) || 0,
         unitPrice: Number(line.unitPrice) || 0,
         amount: Number(line.amount) || 0,
-      })) || []
-    );
+      })) || [];
 
     // 새 버전 생성
     const newVersion = existingQuotation.version + 1;
@@ -351,11 +341,21 @@ export async function PUT(
         taxRate,
         taxAmount,
         totalAmount,
-        orderItems,
         changes: JSON.stringify(actualChanges),
         createdBy: user.id,
       },
     });
+
+    // 견적서 항목들 업데이트 (기존 항목 삭제 후 새로 생성)
+    await prisma.quotationItem.deleteMany({
+      where: { quotationId: id },
+    });
+
+    if (quotationItems.length > 0) {
+      await prisma.quotationItem.createMany({
+        data: quotationItems,
+      });
+    }
 
     return NextResponse.json({ quotation });
   } catch (error) {
