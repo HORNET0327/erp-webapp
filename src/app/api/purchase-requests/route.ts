@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
+import { getSessionUser } from "@/lib/auth";
+import { logActivity } from "@/lib/activity-logger";
 
 export async function GET(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session?.user?.id) {
+    const user = await getSessionUser();
+    if (!user?.id) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
@@ -74,12 +74,13 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session?.user?.id) {
+    const user = await getSessionUser();
+    if (!user?.id) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     const body = await request.json();
+    console.log("Purchase request body:", JSON.stringify(body, null, 2));
     const {
       vendorId,
       requiredDate,
@@ -87,6 +88,18 @@ export async function POST(request: NextRequest) {
       reason,
       lines,
     } = body;
+
+    // 공급업체 존재 확인
+    const vendor = await prisma.vendor.findUnique({
+      where: { id: vendorId },
+    });
+    
+    if (!vendor) {
+      return NextResponse.json(
+        { error: "Vendor not found" },
+        { status: 400 }
+      );
+    }
 
     // 요청번호 생성 (PR + YYYYMMDD + 4자리 숫자)
     const today = new Date();
@@ -100,6 +113,20 @@ export async function POST(request: NextRequest) {
     });
     const requestNo = `PR${dateStr}${String(count + 1).padStart(4, "0")}`;
 
+    // 품목들 존재 확인
+    const itemIds = lines.map((line: any) => line.itemId);
+    const existingItems = await prisma.item.findMany({
+      where: { id: { in: itemIds } },
+      select: { id: true },
+    });
+    
+    if (existingItems.length !== itemIds.length) {
+      return NextResponse.json(
+        { error: "Some items not found" },
+        { status: 400 }
+      );
+    }
+
     // 총 금액 계산
     const totalAmount = lines.reduce((sum: number, line: any) => {
       return sum + Number(line.qty) * Number(line.estimatedCost || 0);
@@ -109,20 +136,21 @@ export async function POST(request: NextRequest) {
       data: {
         requestNo,
         vendorId,
-        requesterId: session.user.id,
+        requesterId: user.id,
+        approverId: null, // 명시적으로 null 설정
         requestDate: new Date(),
         requiredDate: requiredDate ? new Date(requiredDate) : null,
         status: "pending",
         totalAmount,
-        notes,
-        reason,
+        notes: notes || null,
+        reason: reason || null,
         lines: {
           create: lines.map((line: any) => ({
             itemId: line.itemId,
             qty: Number(line.qty),
-            estimatedCost: line.estimatedCost ? Number(line.estimatedCost) : null,
+            estimatedCost: Number(line.estimatedCost || 0),
             amount: Number(line.qty) * Number(line.estimatedCost || 0),
-            reason: line.reason,
+            reason: line.reason || null,
           })),
         },
       },
@@ -144,12 +172,33 @@ export async function POST(request: NextRequest) {
       },
     });
 
+    // 활동 로그 기록
+    await prisma.activityLog.create({
+      data: {
+        userId: user.id,
+        action: "created",
+        entityType: "PurchaseRequest",
+        entityId: purchaseRequest.id,
+        description: `구매요청 ${purchaseRequest.requestNo}이 생성되었습니다.`,
+        metadata: JSON.stringify({
+          requestNo: purchaseRequest.requestNo,
+          vendorName: vendor.name,
+          totalAmount: purchaseRequest.totalAmount,
+          itemCount: lines.length,
+        }),
+      },
+    });
+
     return NextResponse.json({ purchaseRequest });
   } catch (error) {
     console.error("Error creating purchase request:", error);
+    console.error("Request body:", JSON.stringify(body, null, 2));
+    console.error("Vendor ID:", vendorId);
+    console.error("User ID:", user.id);
     return NextResponse.json(
-      { error: "Failed to create purchase request" },
+      { error: "Failed to create purchase request", details: error.message },
       { status: 500 }
     );
   }
 }
+

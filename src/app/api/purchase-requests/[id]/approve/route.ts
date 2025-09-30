@@ -1,20 +1,44 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
+import { getSessionUser } from "@/lib/auth";
+import { logActivity } from "@/lib/activity-logger";
 
 export async function POST(
   request: NextRequest,
   { params }: { params: { id: string } }
 ) {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session?.user?.id) {
+    const user = await getSessionUser();
+    if (!user?.id) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     const purchaseRequest = await prisma.purchaseRequest.findUnique({
       where: { id: params.id },
+      include: {
+        vendor: {
+          select: {
+            name: true,
+            code: true,
+          },
+        },
+        requester: {
+          select: {
+            name: true,
+            username: true,
+          },
+        },
+        lines: {
+          include: {
+            item: {
+              select: {
+                name: true,
+                code: true,
+              },
+            },
+          },
+        },
+      },
     });
 
     if (!purchaseRequest) {
@@ -32,23 +56,46 @@ export async function POST(
       where: { id: params.id },
       data: {
         status: "approved",
-        approverId: session.user.id,
+        approverId: user.id,
         approvedAt: new Date(),
       },
     });
 
-    // 활동 로그 기록
+    // 활동 로그 기록 - 상세 변경 내역 포함
+    const changes = [
+      {
+        field: "상태",
+        oldValue: "요청대기",
+        newValue: "승인됨",
+      },
+      {
+        field: "승인자",
+        oldValue: purchaseRequest.approverId ? "이전 승인자" : "없음",
+        newValue: user.name || user.username,
+      },
+      {
+        field: "승인일시",
+        oldValue: purchaseRequest.approvedAt ? purchaseRequest.approvedAt.toISOString() : "없음",
+        newValue: new Date().toISOString(),
+      },
+    ];
+
     await prisma.activityLog.create({
       data: {
-        userId: session.user.id,
-        action: "APPROVE_PURCHASE_REQUEST",
-        entityType: "PURCHASE_REQUEST",
+        userId: user.id,
+        action: "approved",
+        entityType: "PurchaseRequest",
         entityId: purchaseRequest.id,
-        description: `구매요청을 승인했습니다: ${purchaseRequest.requestNo}`,
+        description: `구매요청 ${purchaseRequest.requestNo}이 승인되었습니다.`,
         metadata: JSON.stringify({
           requestNo: purchaseRequest.requestNo,
-          previousStatus: "pending",
-          newStatus: "approved",
+          vendorName: purchaseRequest.vendor?.name,
+          requesterName: purchaseRequest.requester?.name || purchaseRequest.requester?.username,
+          totalAmount: purchaseRequest.totalAmount,
+          itemCount: purchaseRequest.lines?.length || 0,
+          changes: changes,
+          approver: user.name || user.username,
+          timestamp: new Date().toISOString(),
         }),
       },
     });
@@ -62,3 +109,4 @@ export async function POST(
     );
   }
 }
+

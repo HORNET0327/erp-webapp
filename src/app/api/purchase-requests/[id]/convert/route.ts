@@ -1,15 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
+import { getSessionUser } from "@/lib/auth";
 
 export async function POST(
   request: NextRequest,
   { params }: { params: { id: string } }
 ) {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session?.user?.id) {
+    const user = await getSessionUser();
+    if (!user?.id) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
@@ -53,7 +52,7 @@ export async function POST(
       data: {
         poNo,
         vendorId: purchaseRequest.vendorId,
-        buyerId: session.user.id,
+        buyerId: user.id,
         orderDate: new Date(),
         requiredDate: purchaseRequest.requiredDate,
         status: "pending",
@@ -82,7 +81,7 @@ export async function POST(
     // 활동 로그 기록
     await prisma.activityLog.create({
       data: {
-        userId: session.user.id,
+        userId: user.id,
         action: "CONVERT_PURCHASE_REQUEST",
         entityType: "PURCHASE_REQUEST",
         entityId: purchaseRequest.id,
@@ -108,3 +107,4 @@ export async function POST(
     );
   }
 }
+

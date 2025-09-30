@@ -1,15 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
+import { getSessionUser } from "@/lib/auth";
+import { logActivity } from "@/lib/activity-logger";
 
 export async function POST(
   request: NextRequest,
   { params }: { params: { id: string } }
 ) {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session?.user?.id) {
+    const user = await getSessionUser();
+    if (!user?.id) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
@@ -18,6 +18,30 @@ export async function POST(
 
     const purchaseRequest = await prisma.purchaseRequest.findUnique({
       where: { id: params.id },
+      include: {
+        vendor: {
+          select: {
+            name: true,
+            code: true,
+          },
+        },
+        requester: {
+          select: {
+            name: true,
+            username: true,
+          },
+        },
+        lines: {
+          include: {
+            item: {
+              select: {
+                name: true,
+                code: true,
+              },
+            },
+          },
+        },
+      },
     });
 
     if (!purchaseRequest) {
@@ -35,25 +59,53 @@ export async function POST(
       where: { id: params.id },
       data: {
         status: "rejected",
-        approverId: session.user.id,
+        approverId: user.id,
         rejectedAt: new Date(),
         notes: reason ? `거부 사유: ${reason}` : purchaseRequest.notes,
       },
     });
 
-    // 활동 로그 기록
+    // 활동 로그 기록 - 상세 변경 내역 포함
+    const changes = [
+      {
+        field: "상태",
+        oldValue: "요청대기",
+        newValue: "거부됨",
+      },
+      {
+        field: "거부자",
+        oldValue: purchaseRequest.approverId ? "이전 승인자" : "없음",
+        newValue: user.name || user.username,
+      },
+      {
+        field: "거부일시",
+        oldValue: purchaseRequest.rejectedAt ? purchaseRequest.rejectedAt.toISOString() : "없음",
+        newValue: new Date().toISOString(),
+      },
+      {
+        field: "거부사유",
+        oldValue: "없음",
+        newValue: reason || "사유 없음",
+      },
+    ];
+
     await prisma.activityLog.create({
       data: {
-        userId: session.user.id,
-        action: "REJECT_PURCHASE_REQUEST",
-        entityType: "PURCHASE_REQUEST",
+        userId: user.id,
+        action: "rejected",
+        entityType: "PurchaseRequest",
         entityId: purchaseRequest.id,
-        description: `구매요청을 거부했습니다: ${purchaseRequest.requestNo}`,
+        description: `구매요청 ${purchaseRequest.requestNo}이 거부되었습니다.`,
         metadata: JSON.stringify({
           requestNo: purchaseRequest.requestNo,
-          previousStatus: "pending",
-          newStatus: "rejected",
-          reason,
+          vendorName: purchaseRequest.vendor?.name,
+          requesterName: purchaseRequest.requester?.name || purchaseRequest.requester?.username,
+          totalAmount: purchaseRequest.totalAmount,
+          itemCount: purchaseRequest.lines?.length || 0,
+          changes: changes,
+          reason: reason,
+          approver: user.name || user.username,
+          timestamp: new Date().toISOString(),
         }),
       },
     });
@@ -67,3 +119,4 @@ export async function POST(
     );
   }
 }
+

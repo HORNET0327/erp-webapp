@@ -10,6 +10,7 @@ import HistoryModal from "@/components/HistoryModal";
 import ShipmentCheckModal from "@/components/ShipmentCheckModal";
 import OrderRegistrationModal from "@/components/OrderRegistrationModal";
 import PurchaseRequestModal from "@/components/PurchaseRequestModal";
+import PurchaseRequestDetailModal from "@/components/PurchaseRequestDetailModal";
 
 interface Order {
   id: string;
@@ -129,7 +130,7 @@ function OrderCard({
   );
 }
 
-function StatusBadge({ status }: { status: string }) {
+function StatusBadge({ status, activeTab }: { status: string; activeTab?: string }) {
   const getStatusStyle = (status: string) => {
     switch (status.toLowerCase()) {
       case "pending":
@@ -210,6 +211,8 @@ export default function OrdersPage() {
   const [isOrderRegistrationModalOpen, setIsOrderRegistrationModalOpen] =
     useState(false);
   const [isPurchaseRequestModalOpen, setIsPurchaseRequestModalOpen] =
+    useState(false);
+  const [isPurchaseRequestDetailModalOpen, setIsPurchaseRequestDetailModalOpen] =
     useState(false);
   const [selectedOrder, setSelectedOrder] = useState<any>(null);
 
@@ -312,11 +315,20 @@ export default function OrdersPage() {
 
   const handleViewDetails = (order: any) => {
     setSelectedOrder(order);
-    setIsDetailModalOpen(true);
+    if (order.orderType === "purchaseRequest") {
+      setIsPurchaseRequestDetailModalOpen(true);
+    } else {
+      setIsDetailModalOpen(true);
+    }
   };
 
   const handleDetailModalClose = () => {
     setIsDetailModalOpen(false);
+    setSelectedOrder(null);
+  };
+
+  const handlePurchaseRequestDetailModalClose = () => {
+    setIsPurchaseRequestDetailModalOpen(false);
     setSelectedOrder(null);
   };
 
@@ -1293,7 +1305,7 @@ export default function OrdersPage() {
                           padding: "12px 16px",
                         }}
                       >
-                        <StatusBadge status={order.status} />
+                        <StatusBadge status={order.status} activeTab={activeTab} />
                       </td>
                       <td
                         style={{
@@ -1689,6 +1701,7 @@ export default function OrdersPage() {
           onClose={handleHistoryModalClose}
           orderId={selectedOrder?.id}
           orderNo={selectedOrder?.orderNo}
+          orderType={selectedOrder?.orderType}
         />
 
         {/* Shipment Check Modal */}
@@ -1712,6 +1725,14 @@ export default function OrdersPage() {
           isOpen={isPurchaseRequestModalOpen}
           onClose={() => setIsPurchaseRequestModalOpen(false)}
           onSuccess={handleOrderSuccess}
+        />
+
+        {/* Purchase Request Detail Modal */}
+        <PurchaseRequestDetailModal
+          isOpen={isPurchaseRequestDetailModalOpen}
+          onClose={handlePurchaseRequestDetailModalClose}
+          purchaseRequest={selectedOrder}
+          onPurchaseRequestUpdated={fetchOrders}
         />
       </div>
     </div>

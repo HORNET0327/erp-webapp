@@ -255,7 +255,8 @@ model PurchaseOrder {
   vendor     Vendor @relation(fields: [vendorId], references: [id])
   buyer      User?  @relation("PurchaseOrders", fields: [buyerId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   lines      PurchaseOrderLine[]
-  convertedFrom PurchaseRequest? @relation("PurchaseRequestConversion")
+  convertedFromId String?
+  convertedFrom PurchaseRequest? @relation("PurchaseRequestConversion", fields: [convertedFromId], references: [id])
 }
 
 model PurchaseOrderLine {
@@ -295,7 +296,7 @@ model PurchaseRequest {
   requester    User   @relation("PurchaseRequests", fields: [requesterId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   approver     User?  @relation("PurchaseRequestApprovals", fields: [approverId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   lines        PurchaseRequestLine[]
-  convertedTo  PurchaseOrder? @relation("PurchaseRequestConversion", fields: [id], references: [id])
+  convertedTo  PurchaseOrder[] @relation("PurchaseRequestConversion")
 
   @@index([vendorId])
   @@index([requesterId])

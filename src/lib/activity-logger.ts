@@ -1,5 +1,6 @@
 // 활동 로그 생성 유틸리티 함수
 export interface ActivityLogData {
+  userId: string;
   action: string;
   entityType: string;
   entityId?: string;
@@ -9,20 +10,22 @@ export interface ActivityLogData {
 
 export async function logActivity(data: ActivityLogData) {
   try {
-    // 서버 사이드에서는 절대 URL을 사용해야 합니다
-    const baseUrl = process.env.NEXTAUTH_URL || "http://localhost:3000";
-    const response = await fetch(`${baseUrl}/api/activity-logs`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
+    // 서버 사이드에서는 직접 Prisma를 사용
+    const { PrismaClient } = await import("@prisma/client");
+    const prisma = new PrismaClient();
+    
+    await prisma.activityLog.create({
+      data: {
+        userId: data.userId,
+        action: data.action,
+        entityType: data.entityType,
+        entityId: data.entityId,
+        description: data.description,
+        metadata: data.metadata ? JSON.stringify(data.metadata) : null,
       },
-      credentials: "include",
-      body: JSON.stringify(data),
     });
-
-    if (!response.ok) {
-      console.error("Failed to log activity:", await response.text());
-    }
+    
+    await prisma.$disconnect();
   } catch (error) {
     console.error("Error logging activity:", error);
   }
@@ -32,11 +35,13 @@ export async function logActivity(data: ActivityLogData) {
 export const ActivityLogger = {
   // 주문 관련
   createOrder: (
+    userId: string,
     orderType: "sales" | "purchase",
     orderId: string,
     customerName?: string
   ) =>
     logActivity({
+      userId,
       action: "CREATE",
       entityType: orderType === "sales" ? "SALES_ORDER" : "PURCHASE_ORDER",
       entityId: orderId,
