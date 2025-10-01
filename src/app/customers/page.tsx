@@ -33,29 +33,20 @@ function CustomerCard({
   value,
   delta,
   accent,
-  onClick,
-  isActive,
 }: {
   title: string;
   value: string;
   delta?: string;
   accent?: string;
-  onClick?: () => void;
-  isActive?: boolean;
 }) {
   return (
     <div
-      onClick={onClick}
       style={{
-        background: isActive ? "#f0f9ff" : "#ffffff",
-        border: isActive ? "2px solid #3b82f6" : "1px solid #e5e7eb",
+        background: "#ffffff",
+        border: "1px solid #e5e7eb",
         borderRadius: 8,
         padding: "12px",
-        boxShadow: isActive
-          ? "0 2px 4px rgba(59, 130, 246, 0.15)"
-          : "0 1px 2px rgba(0,0,0,0.04)",
-        cursor: onClick ? "pointer" : "default",
-        transition: "all 0.2s ease",
+        boxShadow: "0 1px 2px rgba(0,0,0,0.04)",
       }}
     >
       <div
@@ -129,9 +120,6 @@ export default function CustomersPage() {
   const [vendors, setVendors] = useState<Vendor[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
-  const [activeFilter, setActiveFilter] = useState<
-    "all" | "active" | "inactive"
-  >("all");
   const [currentUser, setCurrentUser] = useState<string>("");
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<Customer | Vendor | null>(
@@ -209,37 +197,21 @@ export default function CustomersPage() {
     }
   };
 
-  const filteredCustomers = customers.filter((customer) => {
-    const matchesSearch =
+  const filteredCustomers = customers.filter(
+    (customer) =>
       customer.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       customer.code.toLowerCase().includes(searchTerm.toLowerCase()) ||
       (customer.contactPerson &&
-        customer.contactPerson
-          .toLowerCase()
-          .includes(searchTerm.toLowerCase()));
+        customer.contactPerson.toLowerCase().includes(searchTerm.toLowerCase()))
+  );
 
-    const matchesStatus =
-      activeFilter === "all" ||
-      (activeFilter === "active" && customer.isActive) ||
-      (activeFilter === "inactive" && !customer.isActive);
-
-    return matchesSearch && matchesStatus;
-  });
-
-  const filteredVendors = vendors.filter((vendor) => {
-    const matchesSearch =
+  const filteredVendors = vendors.filter(
+    (vendor) =>
       vendor.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       vendor.code.toLowerCase().includes(searchTerm.toLowerCase()) ||
       (vendor.contactPerson &&
-        vendor.contactPerson.toLowerCase().includes(searchTerm.toLowerCase()));
-
-    const matchesStatus =
-      activeFilter === "all" ||
-      (activeFilter === "active" && vendor.isActive) ||
-      (activeFilter === "inactive" && !vendor.isActive);
-
-    return matchesSearch && matchesStatus;
-  });
+        vendor.contactPerson.toLowerCase().includes(searchTerm.toLowerCase()))
+  );
 
   const activeCustomers = customers.filter((c) => c.isActive).length;
   const inactiveCustomers = customers.filter((c) => !c.isActive).length;
@@ -263,11 +235,6 @@ export default function CustomersPage() {
 
   const handleModalSuccess = () => {
     fetchData();
-  };
-
-  const handleTabChange = (tab: "customers" | "vendors") => {
-    setActiveTab(tab);
-    setActiveFilter("all"); // 탭 변경 시 필터 초기화
   };
 
   return (
@@ -299,7 +266,7 @@ export default function CustomersPage() {
           }}
         >
           <button
-            onClick={() => handleTabChange("customers")}
+            onClick={() => setActiveTab("customers")}
             style={{
               padding: "10px 20px",
               background: activeTab === "customers" ? "#3b82f6" : "transparent",
@@ -315,7 +282,7 @@ export default function CustomersPage() {
             고객 관리
           </button>
           <button
-            onClick={() => handleTabChange("vendors")}
+            onClick={() => setActiveTab("vendors")}
             style={{
               padding: "10px 20px",
               background: activeTab === "vendors" ? "#3b82f6" : "transparent",
@@ -368,8 +335,6 @@ export default function CustomersPage() {
                 activeTab === "customers" ? customers.length : vendors.length
               }개`}
               accent="#3b82f6"
-              onClick={() => setActiveFilter("all")}
-              isActive={activeFilter === "all"}
             />
             <CustomerCard
               title="활성"
@@ -377,8 +342,6 @@ export default function CustomersPage() {
                 activeTab === "customers" ? activeCustomers : activeVendors
               }개`}
               accent="#22c55e"
-              onClick={() => setActiveFilter("active")}
-              isActive={activeFilter === "active"}
             />
             <CustomerCard
               title="비활성"
@@ -386,8 +349,6 @@ export default function CustomersPage() {
                 activeTab === "customers" ? inactiveCustomers : inactiveVendors
               }개`}
               accent="#ef4444"
-              onClick={() => setActiveFilter("inactive")}
-              isActive={activeFilter === "inactive"}
             />
             <CustomerCard
               title="검색 결과"

@@ -17,6 +17,7 @@ interface HistoryModalProps {
   onClose: () => void;
   orderId: string;
   orderNo: string;
+  orderType?: "sales" | "purchase" | "purchaseRequest";
 }
 
 export default function HistoryModal({
@@ -24,6 +25,7 @@ export default function HistoryModal({
   onClose,
   orderId,
   orderNo,
+  orderType = "sales",
 }: HistoryModalProps) {
   const [historyItems, setHistoryItems] = useState<HistoryItem[]>([]);
   const [loading, setLoading] = useState(false);
@@ -44,12 +46,37 @@ export default function HistoryModal({
   const fetchHistory = async () => {
     setLoading(true);
     try {
-      const response = await fetch(`/api/orders/${orderId}/history`);
+      const apiUrl = orderType === "purchaseRequest" 
+        ? `/api/purchase-requests/${orderId}/history`
+        : `/api/orders/${orderId}/history`;
+      
+      console.log("Fetching history from:", apiUrl);
+      console.log("Order type:", orderType);
+      console.log("Order ID:", orderId);
+      
+      const response = await fetch(apiUrl);
+      console.log("Response status:", response.status);
+      console.log("Response ok:", response.ok);
+      
       if (response.ok) {
         const data = await response.json();
-        setHistoryItems(data.history || []);
+        console.log("History data received:", data);
+        
+        // ActivityLog 데이터를 HistoryItem 형식으로 변환
+        const historyItems = (data.history || data || []).map((item: any) => ({
+          id: item.id,
+          action: item.action,
+          description: item.description,
+          timestamp: item.timestamp,
+          user: item.user?.name || item.user?.username || "Unknown",
+          details: item.metadata ? JSON.parse(item.metadata) : null,
+        }));
+        
+        setHistoryItems(historyItems);
       } else {
-        console.error("히스토리 조회 실패");
+        const errorText = await response.text();
+        console.error("히스토리 조회 실패 - Status:", response.status);
+        console.error("Error response:", errorText);
         setHistoryItems([]);
       }
     } catch (error) {
@@ -318,6 +345,74 @@ export default function HistoryModal({
                         )}
                     </div>
 
+                    {/* 변경 내역 상세 표시 */}
+                    {item.details?.changes && item.details.changes.length > 0 && (
+                      <div
+                        style={{
+                          marginBottom: "8px",
+                          padding: "12px",
+                          backgroundColor: "#f3f4f6",
+                          borderRadius: "6px",
+                          border: "1px solid #e5e7eb",
+                        }}
+                      >
+                        <div
+                          style={{
+                            fontSize: "12px",
+                            fontWeight: "600",
+                            color: "#374151",
+                            marginBottom: "8px",
+                          }}
+                        >
+                          변경 내역:
+                        </div>
+                        {item.details.changes.map((change: any, changeIndex: number) => (
+                          <div
+                            key={changeIndex}
+                            style={{
+                              display: "flex",
+                              alignItems: "center",
+                              gap: "8px",
+                              marginBottom: "4px",
+                              fontSize: "12px",
+                            }}
+                          >
+                            <span
+                              style={{
+                                fontWeight: "500",
+                                color: "#374151",
+                                minWidth: "60px",
+                              }}
+                            >
+                              {change.field}:
+                            </span>
+                            <span
+                              style={{
+                                color: "#dc2626",
+                                textDecoration: "line-through",
+                                backgroundColor: "#fef2f2",
+                                padding: "2px 4px",
+                                borderRadius: "3px",
+                              }}
+                            >
+                              {change.oldValue}
+                            </span>
+                            <span style={{ color: "#6b7280" }}>→</span>
+                            <span
+                              style={{
+                                color: "#059669",
+                                backgroundColor: "#f0fdf4",
+                                padding: "2px 4px",
+                                borderRadius: "3px",
+                              }}
+                            >
+                              {change.newValue}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
                     {/* 상세 정보 표시 */}
                     {item.details && (
                       <div
@@ -368,6 +463,76 @@ export default function HistoryModal({
                             </span>{" "}
                             <span style={{ color: "#1f2937" }}>
                               {item.details.vendorName}
+                            </span>
+                          </div>
+                        )}
+                        {item.details.requestNo && (
+                          <div
+                            style={{ marginBottom: "4px", fontSize: "13px" }}
+                          >
+                            <span
+                              style={{ fontWeight: "600", color: "#374151" }}
+                            >
+                              요청번호:
+                            </span>{" "}
+                            <span style={{ color: "#1f2937" }}>
+                              {item.details.requestNo}
+                            </span>
+                          </div>
+                        )}
+                        {item.details.requesterName && (
+                          <div
+                            style={{ marginBottom: "4px", fontSize: "13px" }}
+                          >
+                            <span
+                              style={{ fontWeight: "600", color: "#374151" }}
+                            >
+                              요청자:
+                            </span>{" "}
+                            <span style={{ color: "#1f2937" }}>
+                              {item.details.requesterName}
+                            </span>
+                          </div>
+                        )}
+                        {item.details.approver && (
+                          <div
+                            style={{ marginBottom: "4px", fontSize: "13px" }}
+                          >
+                            <span
+                              style={{ fontWeight: "600", color: "#374151" }}
+                            >
+                              {item.action === "approved" ? "승인자" : item.action === "rejected" ? "거부자" : "처리자"}:
+                            </span>{" "}
+                            <span style={{ color: "#1f2937" }}>
+                              {item.details.approver}
+                            </span>
+                          </div>
+                        )}
+                        {item.details.itemCount && (
+                          <div
+                            style={{ marginBottom: "4px", fontSize: "13px" }}
+                          >
+                            <span
+                              style={{ fontWeight: "600", color: "#374151" }}
+                            >
+                              품목 수:
+                            </span>{" "}
+                            <span style={{ color: "#1f2937" }}>
+                              {item.details.itemCount}개
+                            </span>
+                          </div>
+                        )}
+                        {item.details.reason && (
+                          <div
+                            style={{ marginBottom: "4px", fontSize: "13px" }}
+                          >
+                            <span
+                              style={{ fontWeight: "600", color: "#374151" }}
+                            >
+                              사유:
+                            </span>{" "}
+                            <span style={{ color: "#1f2937" }}>
+                              {item.details.reason}
                             </span>
                           </div>
                         )}
