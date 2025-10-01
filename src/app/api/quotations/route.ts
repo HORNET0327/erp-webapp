@@ -95,7 +95,6 @@ export async function POST(request: NextRequest) {
         taxRate,
         taxAmount,
         totalAmount,
-        orderItems,
         expiresAt: new Date(Date.now() + 10 * 24 * 60 * 60 * 1000), // 10일 후
       },
       include: {
@@ -111,7 +110,23 @@ export async function POST(request: NextRequest) {
         },
         customer: true,
         authorUser: true,
+        items: {
+          include: {
+            item: true,
+          },
+        },
       },
+    });
+
+    // 견적서 항목들 저장
+    await prisma.quotationItem.createMany({
+      data: order.lines.map((line) => ({
+        quotationId: quotation.id,
+        itemId: line.itemId,
+        qty: Number(line.qty) || 0,
+        unitPrice: Number(line.unitPrice) || 0,
+        amount: Number(line.amount) || 0,
+      })),
     });
 
     // 버전 이력 저장
@@ -132,16 +147,6 @@ export async function POST(request: NextRequest) {
         taxRate,
         taxAmount,
         totalAmount,
-        orderItems,
-        changes: JSON.stringify({
-          quotationName,
-          paymentDeadline,
-          validityPeriod,
-          deliveryLocation,
-          paymentTerms,
-          author,
-          remarks,
-        }),
         createdBy: user.id,
       },
     });
@@ -185,6 +190,11 @@ export async function GET(request: NextRequest) {
         },
         customer: true,
         authorUser: true,
+        items: {
+          include: {
+            item: true,
+          },
+        },
         emails: {
           orderBy: { sentAt: "desc" },
           take: 1,

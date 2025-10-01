@@ -62,9 +62,6 @@ export async function GET(request: NextRequest) {
       orderBy: { name: "asc" },
     });
 
-    console.log("API: Found items count:", items.length);
-    console.log("API: First few items:", items.slice(0, 3));
-
     // Optimized batch stock calculation
     const itemIds = items.map((item) => item.id);
 

@@ -25,8 +25,6 @@ model User {
   userInfo      UserInfo?
   salesOrders   SalesOrder[] @relation("SalesOrders")
   purchaseOrders PurchaseOrder[] @relation("PurchaseOrders")
-  purchaseRequests PurchaseRequest[] @relation("PurchaseRequests")
-  purchaseRequestApprovals PurchaseRequest[] @relation("PurchaseRequestApprovals")
   quotations    Quotation[] @relation("Quotations")
   quotationVersions QuotationVersion[] @relation("QuotationVersions")
   activityLogs  ActivityLog[]
@@ -158,7 +156,6 @@ model Vendor {
   updatedAt    DateTime @updatedAt
 
   purchaseOrders PurchaseOrder[]
-  purchaseRequests PurchaseRequest[]
 }
 
 model Item {
@@ -181,7 +178,6 @@ model Item {
   brand       Brand?    @relation(fields: [brandId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   soLines     SalesOrderLine[]
   poLines     PurchaseOrderLine[]
-  prLines     PurchaseRequestLine[]
   invTx       InventoryTransaction[]
   serials     SerialNumber[]
   quotationItems QuotationItem[]
@@ -255,8 +251,6 @@ model PurchaseOrder {
   vendor     Vendor @relation(fields: [vendorId], references: [id])
   buyer      User?  @relation("PurchaseOrders", fields: [buyerId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   lines      PurchaseOrderLine[]
-  convertedFromId String?
-  convertedFrom PurchaseRequest? @relation("PurchaseRequestConversion", fields: [convertedFromId], references: [id])
 }
 
 model PurchaseOrderLine {
@@ -271,53 +265,6 @@ model PurchaseOrderLine {
   item            Item          @relation(fields: [itemId], references: [id], onDelete: NoAction, onUpdate: NoAction)
 
   @@index([purchaseOrderId])
-}
-
-// Purchase Request
-model PurchaseRequest {
-  id           String   @id @default(cuid())
-  requestNo    String   @unique @db.VarChar(32)
-  vendorId     String
-  requesterId  String
-  approverId   String?
-  requestDate  DateTime
-  requiredDate DateTime?
-  status       String   @db.VarChar(20) // pending, approved, rejected, converted
-  totalAmount  Decimal  @db.Decimal(18,2)
-  notes        String?  @db.VarChar(500)
-  reason       String?  @db.VarChar(1000) // 구매요청 사유
-  approvedAt   DateTime?
-  rejectedAt   DateTime?
-  convertedAt  DateTime? // 구매주문으로 변환된 시점
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
-
-  vendor       Vendor @relation(fields: [vendorId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  requester    User   @relation("PurchaseRequests", fields: [requesterId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  approver     User?  @relation("PurchaseRequestApprovals", fields: [approverId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  lines        PurchaseRequestLine[]
-  convertedTo  PurchaseOrder[] @relation("PurchaseRequestConversion")
-
-  @@index([vendorId])
-  @@index([requesterId])
-  @@index([status])
-  @@index([requestDate])
-}
-
-model PurchaseRequestLine {
-  id                String   @id @default(cuid())
-  purchaseRequestId String
-  itemId            String
-  qty               Decimal  @db.Decimal(18,2)
-  estimatedCost     Decimal? @db.Decimal(18,2) // 예상 단가
-  amount            Decimal  @db.Decimal(18,2)
-  reason            String?  @db.VarChar(500) // 품목별 구매 사유
-
-  purchaseRequest   PurchaseRequest @relation(fields: [purchaseRequestId], references: [id], onDelete: Cascade)
-  item              Item            @relation(fields: [itemId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-
-  @@index([purchaseRequestId])
-  @@index([itemId])
 }
 
 // Inventory
