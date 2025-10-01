@@ -33,20 +33,27 @@ function CustomerCard({
   value,
   delta,
   accent,
+  isActive,
+  onClick,
 }: {
   title: string;
   value: string;
   delta?: string;
   accent?: string;
+  isActive?: boolean;
+  onClick?: () => void;
 }) {
   return (
     <div
+      onClick={onClick}
       style={{
-        background: "#ffffff",
-        border: "1px solid #e5e7eb",
+        background: isActive ? "#f0f9ff" : "#ffffff",
+        border: isActive ? "2px solid #3b82f6" : "1px solid #e5e7eb",
         borderRadius: 8,
         padding: "12px",
-        boxShadow: "0 1px 2px rgba(0,0,0,0.04)",
+        boxShadow: isActive ? "0 4px 6px rgba(59, 130, 246, 0.1)" : "0 1px 2px rgba(0,0,0,0.04)",
+        cursor: "pointer",
+        transition: "all 0.2s ease",
       }}
     >
       <div
@@ -125,11 +132,21 @@ export default function CustomersPage() {
   const [editingItem, setEditingItem] = useState<Customer | Vendor | null>(
     null
   );
+  const [statusFilter, setStatusFilter] = useState<"all" | "active" | "inactive" | "search">("all");
 
   useEffect(() => {
     fetchCurrentUser();
     fetchData();
   }, []);
+
+  // 검색어가 변경될 때 필터 상태 조정
+  useEffect(() => {
+    if (searchTerm && statusFilter === "all") {
+      setStatusFilter("search");
+    } else if (!searchTerm && statusFilter === "search") {
+      setStatusFilter("all");
+    }
+  }, [searchTerm, statusFilter]);
 
   const fetchCurrentUser = async () => {
     try {
@@ -197,21 +214,34 @@ export default function CustomersPage() {
     }
   };
 
-  const filteredCustomers = customers.filter(
-    (customer) =>
-      customer.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      customer.code.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (customer.contactPerson &&
-        customer.contactPerson.toLowerCase().includes(searchTerm.toLowerCase()))
-  );
+  const getFilteredData = () => {
+    const data = activeTab === "customers" ? customers : vendors;
+    let filtered = data;
 
-  const filteredVendors = vendors.filter(
-    (vendor) =>
-      vendor.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      vendor.code.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (vendor.contactPerson &&
-        vendor.contactPerson.toLowerCase().includes(searchTerm.toLowerCase()))
-  );
+    // 검색어 필터링
+    if (searchTerm) {
+      filtered = filtered.filter(
+        (item) =>
+          item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          item.code.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          (item.contactPerson &&
+            item.contactPerson.toLowerCase().includes(searchTerm.toLowerCase()))
+      );
+    }
+
+    // 상태 필터링
+    if (statusFilter === "active") {
+      filtered = filtered.filter((item) => item.isActive);
+    } else if (statusFilter === "inactive") {
+      filtered = filtered.filter((item) => !item.isActive);
+    }
+    // "all"과 "search"는 추가 필터링 없음
+
+    return filtered;
+  };
+
+  const filteredCustomers = activeTab === "customers" ? getFilteredData() : [];
+  const filteredVendors = activeTab === "vendors" ? getFilteredData() : [];
 
   const activeCustomers = customers.filter((c) => c.isActive).length;
   const inactiveCustomers = customers.filter((c) => !c.isActive).length;
@@ -235,6 +265,21 @@ export default function CustomersPage() {
 
   const handleModalSuccess = () => {
     fetchData();
+  };
+
+  const handleCardClick = (filterType: "all" | "active" | "inactive" | "search") => {
+    setStatusFilter(filterType);
+    if (filterType === "search") {
+      // 검색 결과 카드를 클릭하면 검색어가 있을 때만 필터 적용
+      if (!searchTerm) {
+        setStatusFilter("all");
+      }
+    }
+  };
+
+  const clearFilters = () => {
+    setStatusFilter("all");
+    setSearchTerm("");
   };
 
   return (
@@ -335,6 +380,8 @@ export default function CustomersPage() {
                 activeTab === "customers" ? customers.length : vendors.length
               }개`}
               accent="#3b82f6"
+              isActive={statusFilter === "all"}
+              onClick={() => handleCardClick("all")}
             />
             <CustomerCard
               title="활성"
@@ -342,6 +389,8 @@ export default function CustomersPage() {
                 activeTab === "customers" ? activeCustomers : activeVendors
               }개`}
               accent="#22c55e"
+              isActive={statusFilter === "active"}
+              onClick={() => handleCardClick("active")}
             />
             <CustomerCard
               title="비활성"
@@ -349,6 +398,8 @@ export default function CustomersPage() {
                 activeTab === "customers" ? inactiveCustomers : inactiveVendors
               }개`}
               accent="#ef4444"
+              isActive={statusFilter === "inactive"}
+              onClick={() => handleCardClick("inactive")}
             />
             <CustomerCard
               title="검색 결과"
@@ -358,6 +409,8 @@ export default function CustomersPage() {
                   : filteredVendors.length
               }개`}
               accent="#8b5cf6"
+              isActive={statusFilter === "search"}
+              onClick={() => handleCardClick("search")}
             />
           </div>
         </div>
@@ -406,6 +459,21 @@ export default function CustomersPage() {
             + 새 {activeTab === "customers" ? "고객" : "공급업체"}
           </button>
           <button
+            onClick={clearFilters}
+            style={{
+              padding: "8px 16px",
+              background: "#f59e0b",
+              color: "#ffffff",
+              border: "none",
+              borderRadius: "6px",
+              fontSize: "13px",
+              fontWeight: "500",
+              cursor: "pointer",
+            }}
+          >
+            필터 초기화
+          </button>
+          <button
             onClick={fetchData}
             style={{
               padding: "8px 16px",
@@ -439,16 +507,34 @@ export default function CustomersPage() {
               background: "#f9fafb",
             }}
           >
-            <h3
-              style={{
-                fontSize: "14px",
-                fontWeight: "600",
-                color: "#000000",
-                margin: 0,
-              }}
-            >
-              {activeTab === "customers" ? "고객" : "공급업체"} 목록
-            </h3>
+            <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+              <h3
+                style={{
+                  fontSize: "14px",
+                  fontWeight: "600",
+                  color: "#000000",
+                  margin: 0,
+                }}
+              >
+                {activeTab === "customers" ? "고객" : "공급업체"} 목록
+              </h3>
+              {statusFilter !== "all" && (
+                <span
+                  style={{
+                    padding: "2px 8px",
+                    background: "#3b82f6",
+                    color: "#ffffff",
+                    borderRadius: "12px",
+                    fontSize: "11px",
+                    fontWeight: "500",
+                  }}
+                >
+                  {statusFilter === "active" && "활성"}
+                  {statusFilter === "inactive" && "비활성"}
+                  {statusFilter === "search" && "검색 결과"}
+                </span>
+              )}
+            </div>
           </div>
 
           {loading ? (
